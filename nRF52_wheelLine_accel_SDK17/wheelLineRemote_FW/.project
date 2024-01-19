@@ -41,6 +41,16 @@
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
+			<name>nRF52_common/utils.c</name>
+			<type>1</type>
+			<location>D:/Users/Collin/Documents/Wheel line movers/nrf52_wheelLine_accel/nRF52_wheelLine_accel_SDK17/nRF52_common/utils.c</location>
+		</link>
+		<link>
+			<name>nRF52_common/utils.h</name>
+			<type>1</type>
+			<location>D:/Users/Collin/Documents/Wheel line movers/nrf52_wheelLine_accel/nRF52_wheelLine_accel_SDK17/nRF52_common/utils.h</location>
+		</link>
+		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
@@ -503,57 +513,57 @@
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic/nrf_atomic.c</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic/nrf_atomic.c</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic/nrf_atomic.c</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic/nrf_atomic.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic/nrf_atomic.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic/nrf_atomic.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic/nrf_atomic_internal.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic/nrf_atomic_internal.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic/nrf_atomic_internal.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic/nrf_atomic_sanity_check.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic/nrf_atomic_sanity_check.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic/nrf_atomic_sanity_check.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic_fifo/nrf_atfifo.c</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic_fifo/nrf_atfifo.c</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic_fifo/nrf_atfifo.c</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic_fifo/nrf_atfifo.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic_fifo/nrf_atfifo.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic_fifo/nrf_atfifo.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic_fifo/nrf_atfifo_internal.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic_fifo/nrf_atfifo_internal.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic_fifo/nrf_atfifo_internal.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic_flags/nrf_atflags.c</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic_flags/nrf_atflags.c</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic_flags/nrf_atflags.c</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic_flags/nrf_atflags.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic_flags/nrf_atflags.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic_flags/nrf_atflags.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/balloc/nrf_balloc.c</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/balloc/nrf_balloc.c</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/balloc/nrf_balloc.c</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/balloc/nrf_balloc.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/balloc/nrf_balloc.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/balloc/nrf_balloc.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/delay/nrf_delay.h</name>
@@ -563,17 +573,17 @@
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/experimental_section_vars/nrf_section.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/experimental_section_vars/nrf_section.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/experimental_section_vars/nrf_section.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/experimental_section_vars/nrf_section_iter.c</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/experimental_section_vars/nrf_section_iter.c</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/experimental_section_vars/nrf_section_iter.c</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/experimental_section_vars/nrf_section_iter.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/experimental_section_vars/nrf_section_iter.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/experimental_section_vars/nrf_section_iter.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/fstorage/nrf_fstorage.c</name>
@@ -608,42 +618,42 @@
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_backend_interface.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_backend_interface.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_backend_interface.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_backend_rtt.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_backend_rtt.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_backend_rtt.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_ctrl.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_ctrl.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_ctrl.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_default_backends.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_default_backends.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_default_backends.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_instance.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_instance.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_instance.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_str_formatter.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_str_formatter.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_str_formatter.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_types.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_types.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/nrf_log_types.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src</name>
@@ -1298,42 +1308,42 @@
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_backend_rtt.c</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_backend_rtt.c</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_backend_rtt.c</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_backend_serial.c</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_backend_serial.c</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_backend_serial.c</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_backend_serial.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_backend_serial.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_backend_serial.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_ctrl_internal.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_ctrl_internal.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_ctrl_internal.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_default_backends.c</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_default_backends.c</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_default_backends.c</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_frontend.c</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_frontend.c</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_frontend.c</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_internal.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_internal.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_internal.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_str_formatter.c</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nRF52_wheelLine_accel_SDK17/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_str_formatter.c</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/log/src/nrf_log_str_formatter.c</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/mbr/headers/nrf_mbr.h</name>
@@ -1344,11 +1354,6 @@
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/mbr/headers/nrf_svc.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/mbr/headers/nrf_svc.h</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/mbr/hex/mbr_nrf52_2.4.1_licence-agreement.txt</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/mbr/hex/mbr_nrf52_2.4.1_licence-agreement.txt</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/mbr/hex/mbr_nrf52_2.4.1_mbr.hex</name>
@@ -1446,22 +1451,12 @@
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/s112/headers/nrf_svc.h</locationURI>
 		</link>
 		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/s112/hex/s112_nrf52_7.2.0_licence-agreement.txt</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/s112/hex/s112_nrf52_7.2.0_licence-agreement.txt</locationURI>
-		</link>
-		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/s112/hex/s112_nrf52_7.2.0_softdevice.hex</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/s112/hex/s112_nrf52_7.2.0_softdevice.hex</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/s112/toolchain/armgcc</name>
-			<type>2</type>
-			<locationURI>virtual:/virtual</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/dsp/ARM</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
@@ -1476,24 +1471,9 @@
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/dsp/license.txt</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/dsp/license.txt</locationURI>
-		</link>
-		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_armcc.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_armcc.h</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_armclang.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_armclang.h</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_armclang_ltm.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_armclang_ltm.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_compiler.h</name>
@@ -1504,11 +1484,6 @@
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_gcc.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_gcc.h</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_iccarm.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_iccarm.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_version.h</name>
@@ -1531,41 +1506,6 @@
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_armv8mml.h</locationURI>
 		</link>
 		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm0.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm0.h</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm0plus.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm0plus.h</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm1.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm1.h</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm23.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm23.h</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm3.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm3.h</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm33.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm33.h</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm35p.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm35p.h</locationURI>
-		</link>
-		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm4.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm4.h</locationURI>
@@ -1574,16 +1514,6 @@
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm7.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm7.h</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_sc000.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_sc000.h</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_sc300.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_sc300.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/mpu_armv7.h</name>
@@ -1964,16 +1894,6 @@
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/s112/toolchain/armgcc/armgcc_s112_nrf52810_xxaa.ld</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/s112/toolchain/armgcc/armgcc_s112_nrf52810_xxaa.ld</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/dsp/ARM/arm_cortexM4l_math.lib</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/dsp/ARM/arm_cortexM4l_math.lib</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/dsp/ARM/arm_cortexM4lf_math.lib</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/dsp/ARM/arm_cortexM4lf_math.lib</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/dsp/GCC/libarm_cortexM4l_math.a</name>
