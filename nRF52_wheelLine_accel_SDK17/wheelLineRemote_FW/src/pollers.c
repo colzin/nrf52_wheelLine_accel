@@ -7,7 +7,9 @@
 
 #include "pollers.h"
 
+#define NRF_LOG_MODULE_NAME pollers
 #include "nrf_log.h"
+NRF_LOG_MODULE_REGISTER();
 
 /*************************************************************************************
  *  Definitions

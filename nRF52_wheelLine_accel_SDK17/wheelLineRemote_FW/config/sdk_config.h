@@ -62,8 +62,8 @@
 #define BLE_DB_DISCOVERY_ENABLED 0 // Zero if peripheral only, 1 if central
 #endif
 
-// <q> BLE_DTM_ENABLED  - ble_dtm - Module for testing RF/PHY using DTM commands
-
+// <e> BLE_DTM_ENABLED - ble_dtm - Module for testing RF/PHY using DTM commands
+//==========================================================
 #ifndef BLE_DTM_ENABLED
 #define BLE_DTM_ENABLED 0
 #endif
@@ -74,12 +74,29 @@
 #define BLE_RACP_ENABLED 0
 #endif
 
-// <q> NRF_BLE_GATT_ENABLED  - nrf_ble_gatt - GATT module
-
+// <e> NRF_BLE_GATT_ENABLED - nrf_ble_gatt - GATT module
+//==========================================================
 #ifndef NRF_BLE_GATT_ENABLED
 #define NRF_BLE_GATT_ENABLED 1
 #endif
+// <q> NRF_BLE_GATT_MTU_EXCHANGE_INITIATION_ENABLED  - Enable GATT MTU exchange initiation
+ 
 
+#ifndef NRF_BLE_GATT_MTU_EXCHANGE_INITIATION_ENABLED
+#define NRF_BLE_GATT_MTU_EXCHANGE_INITIATION_ENABLED 1
+#endif
+
+// </e>
+
+// <e> NRF_BLE_QWR_ENABLED - nrf_ble_qwr - Queued writes support module (prepare/execute write)
+//==========================================================
+#ifndef NRF_BLE_QWR_ENABLED
+#define NRF_BLE_QWR_ENABLED 1
+#endif
+// <o> NRF_BLE_QWR_MAX_ATTR - Maximum number of attribute handles that can be registered. This number must be adjusted according to the number of attributes for which Queued Writes will be enabled. If it is zero, the module will reject all Queued Write requests. 
+#ifndef NRF_BLE_QWR_MAX_ATTR
+#define NRF_BLE_QWR_MAX_ATTR 0
+#endif
 // <e> NRF_BLE_GQ_ENABLED - nrf_ble_gq - BLE GATT Queue Module
 //==========================================================
 #ifndef NRF_BLE_GQ_ENABLED
@@ -107,15 +124,6 @@
 
 // </e>
 
-// <e> NRF_BLE_QWR_ENABLED - nrf_ble_qwr - Queued writes support module (prepare/execute write)
-//==========================================================
-#ifndef NRF_BLE_QWR_ENABLED
-#define NRF_BLE_QWR_ENABLED 0
-#endif
-// <o> NRF_BLE_QWR_MAX_ATTR - Maximum number of attribute handles that can be registered. This number must be adjusted according to the number of attributes for which Queued Writes will be enabled. If it is zero, the module will reject all Queued Write requests. 
-#ifndef NRF_BLE_QWR_MAX_ATTR
-#define NRF_BLE_QWR_MAX_ATTR 0
-#endif
 
 // </e>
 // <e> NRF_BLE_CONN_PARAMS_ENABLED - ble_conn_params - Initiating and executing a connection parameters negotiation procedure
@@ -144,7 +152,6 @@
 
 // <e> PEER_MANAGER_ENABLED - peer_manager - Peer Manager
 //==========================================================
-
 #ifndef PEER_MANAGER_ENABLED
 #define PEER_MANAGER_ENABLED 0
 #endif
@@ -195,7 +202,7 @@
 // <q> BLE_DIS_ENABLED  - ble_dis - Device Information Service
 
 #ifndef BLE_DIS_ENABLED
-#define BLE_DIS_ENABLED 1
+#define BLE_DIS_ENABLED 0 // TODO turn on for easy ID
 #endif
 
 // <q> BLE_GLS_ENABLED  - ble_gls - Glucose Service
@@ -627,7 +634,7 @@
 #endif
 // <o> NRFX_GPIOTE_CONFIG_NUM_OF_LOW_POWER_EVENTS - Number of lower power input pins 
 #ifndef NRFX_GPIOTE_CONFIG_NUM_OF_LOW_POWER_EVENTS
-#define NRFX_GPIOTE_CONFIG_NUM_OF_LOW_POWER_EVENTS 0 // Nikaid doesn't use these
+#define NRFX_GPIOTE_CONFIG_NUM_OF_LOW_POWER_EVENTS 0 // May use these
 #endif
 
 // See file for use case setup
@@ -4103,6 +4110,12 @@
 #define BLE_LLS_BLE_OBSERVER_PRIO 2
 #endif
 
+// <o> BLE_NUS_BLE_OBSERVER_PRIO  
+// <i> Priority with which BLE events are dispatched to the UART Service.
+
+#ifndef BLE_NUS_BLE_OBSERVER_PRIO
+#define BLE_NUS_BLE_OBSERVER_PRIO 2
+#endif
 // <o> BLE_TPS_BLE_OBSERVER_PRIO  
 // <i> Priority with which BLE events are dispatched to the TX Power Service.
 
@@ -4141,8 +4154,13 @@
 // <o> NRF_BLE_SCAN_OBSERVER_PRIO  
 // <i> Priority for dispatching the BLE events to the Scanning Module.
 
-#ifndef NRF_SDH_BLE_SCAN_OBSERVER_PRIO
-#define NRF_SDH_BLE_SCAN_OBSERVER_PRIO 1
+#ifndef NRF_BLE_SCAN_OBSERVER_PRIO
+#define NRF_BLE_SCAN_OBSERVER_PRIO 1
+#endif
+
+// <o> PM_BLE_OBSERVER_PRIO - Priority with which BLE events are dispatched to the Peer Manager module. 
+#ifndef PM_BLE_OBSERVER_PRIO
+#define PM_BLE_OBSERVER_PRIO 1
 #endif
 
 // </h> 
@@ -4337,13 +4355,6 @@
 // <h> SoC Observers priorities - Invididual priorities
 
 //==========================================================
-// <o> BLE_ADV_SOC_OBSERVER_PRIO  
-// <i> Priority with which SoC events are dispatched to the Advertising module.
-
-#ifndef BLE_ADV_SOC_OBSERVER_PRIO
-#define BLE_ADV_SOC_OBSERVER_PRIO 1
-#endif
-
 // <o> BLE_DFU_SOC_OBSERVER_PRIO  
 // <i> Priority with which BLE events are dispatched to the DFU Service.
 

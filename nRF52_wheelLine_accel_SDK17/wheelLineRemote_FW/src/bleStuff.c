@@ -26,37 +26,41 @@
 #include "nrf_sdh_ble.h"
 #include "nrf_ble_gatt.h"
 //#include "nrf_ble_qwr.h"
+#include "pollers.h"
 
+#include "version.h"
+
+#define NRF_LOG_MODULE_NAME bleStuff
 #include "nrf_log.h"
+NRF_LOG_MODULE_REGISTER();
 
 /*************************************************************************************
  *  Definitions
  ************************************************************************************/
 
-#define APP_BLE_CONN_CFG_TAG            1                                           /**< A tag identifying the SoftDevice BLE configuration. */
+#define APP_BLE_CONN_CFG_TAG            1                                   /**< A tag identifying the SoftDevice BLE configuration. */
 
-#define DEVICE_NAME                     "Nordic_UART"                               /**< Name of device. Will be included in the advertising data. */
-#define NUS_SERVICE_UUID_TYPE           BLE_UUID_TYPE_VENDOR_BEGIN                  /**< UUID type for the Nordic UART Service (vendor specific). */
+#define NUS_SERVICE_UUID_TYPE           BLE_UUID_TYPE_VENDOR_BEGIN          /**< UUID type for the Nordic UART Service (vendor specific). */
 
-#define APP_BLE_OBSERVER_PRIO           3                                           /**< Application's BLE observer priority. You shouldn't need to modify this value. */
+#define APP_BLE_OBSERVER_PRIO           3                                   /**< Application's BLE observer priority. You shouldn't need to modify this value. */
 
-#define APP_ADV_INTERVAL                64                                          /**< The advertising interval (in units of 0.625 ms. This value corresponds to 40 ms). */
+#define APP_ADV_INTERVAL                MSEC_TO_UNITS(512,UNIT_0_625_MS)    /**< The advertising interval (in units of 0.625 ms. This value corresponds to 40 ms). */
+// How long to advertise for (shrink to save power)
+#define APP_ADV_DURATION                MSEC_TO_UNITS(20000,UNIT_10_MS)     /**< The advertising duration (180 seconds) in units of 10 milliseconds. */
 
-#define APP_ADV_DURATION                18000                                       /**< The advertising duration (180 seconds) in units of 10 milliseconds. */
-
-#define MIN_CONN_INTERVAL               MSEC_TO_UNITS(20, UNIT_1_25_MS)             /**< Minimum acceptable connection interval (20 ms), Connection interval uses 1.25 ms units. */
-#define MAX_CONN_INTERVAL               MSEC_TO_UNITS(75, UNIT_1_25_MS)             /**< Maximum acceptable connection interval (75 ms), Connection interval uses 1.25 ms units. */
-#define SLAVE_LATENCY                   0                                           /**< Slave latency. */
-#define CONN_SUP_TIMEOUT                MSEC_TO_UNITS(4000, UNIT_10_MS)             /**< Connection supervisory timeout (4 seconds), Supervision Timeout uses 10 ms units. */
-#define FIRST_CONN_PARAMS_UPDATE_DELAY  APP_TIMER_TICKS(5000)                       /**< Time from initiating event (connect or start of notification) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
-#define NEXT_CONN_PARAMS_UPDATE_DELAY   APP_TIMER_TICKS(30000)                      /**< Time between each call to sd_ble_gap_conn_param_update after the first call (30 seconds). */
-#define MAX_CONN_PARAMS_UPDATE_COUNT    3                                           /**< Number of attempts before giving up the connection parameter negotiation. */
+#define MIN_CONN_INTERVAL               MSEC_TO_UNITS(20, UNIT_1_25_MS)     /**< Minimum acceptable connection interval (20 ms), Connection interval uses 1.25 ms units. */
+#define MAX_CONN_INTERVAL               MSEC_TO_UNITS(75, UNIT_1_25_MS)     /**< Maximum acceptable connection interval (75 ms), Connection interval uses 1.25 ms units. */
+#define SLAVE_LATENCY                   0                                   /**< Slave latency. */
+#define CONN_SUP_TIMEOUT                MSEC_TO_UNITS(4000, UNIT_10_MS)     /**< Connection supervisory timeout (4 seconds), Supervision Timeout uses 10 ms units. */
+#define FIRST_CONN_PARAMS_UPDATE_DELAY  APP_TIMER_TICKS(5000)               /**< Time from initiating event (connect or start of notification) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
+#define NEXT_CONN_PARAMS_UPDATE_DELAY   APP_TIMER_TICKS(30000)              /**< Time between each call to sd_ble_gap_conn_param_update after the first call (30 seconds). */
+#define MAX_CONN_PARAMS_UPDATE_COUNT    3                                   /**< Number of attempts before giving up the connection parameter negotiation. */
 
 /*************************************************************************************
  *  Variables
  ************************************************************************************/
 
-//BLE_NUS_DEF(m_nus, NRF_SDH_BLE_TOTAL_LINK_COUNT);                                   /**< BLE NUS service instance. */
+BLE_NUS_DEF(m_nus, NRF_SDH_BLE_TOTAL_LINK_COUNT); /**< BLE NUS service instance. */
 NRF_BLE_GATT_DEF(m_gatt); /**< GATT module instance. */
 
 //NRF_BLE_QWR_DEF(m_qwr);                                                             /**< Context for the Queued Write module.*/
@@ -91,9 +95,7 @@ static void gap_params_init(void)
 
     BLE_GAP_CONN_SEC_MODE_SET_OPEN(&sec_mode);
 
-    err_code = sd_ble_gap_device_name_set(&sec_mode,
-                                          (const uint8_t*) DEVICE_NAME,
-                                          strlen(DEVICE_NAME));
+    err_code = sd_ble_gap_device_name_set(&sec_mode, (const uint8_t*)DEVICE_NAME, strlen(DEVICE_NAME));
     APP_ERROR_CHECK(err_code);
 
     memset(&gap_conn_params, 0, sizeof(gap_conn_params));
@@ -114,11 +116,10 @@ static void gap_params_init(void)
  *
  * @param[in]   nrf_error   Error code containing information about what went wrong.
  */
-static void nrf_qwr_error_handler(uint32_t nrf_error)
-{
-    APP_ERROR_HANDLER(nrf_error);
-}
-
+//static void nrf_qwr_error_handler(uint32_t nrf_error)
+//{
+//    APP_ERROR_HANDLER(nrf_error);
+//}
 /**@brief Function for handling the data from the Nordic UART Service.
  *
  * @details This function will process the data received from the Nordic UART BLE Service and send
@@ -132,28 +133,14 @@ static void nus_data_handler(ble_nus_evt_t* p_evt)
 
     if (p_evt->type == BLE_NUS_EVT_RX_DATA)
     {
-        uint32_t err_code;
+//        uint32_t err_code;
 
-        NRF_LOG_DEBUG("Received data from BLE NUS. Writing data on UART.");
+        NRF_LOG_DEBUG("Received data from BLE NUS:");
         NRF_LOG_HEXDUMP_DEBUG(p_evt->params.rx_data.p_data, p_evt->params.rx_data.length);
 
         for (uint32_t i = 0; i < p_evt->params.rx_data.length; i++)
         {
-            do
-            {
-//                err_code = app_uart_put(p_evt->params.rx_data.p_data[i]);
-//                if ((err_code != NRF_SUCCESS) && (err_code != NRF_ERROR_BUSY))
-//                {
-//                    NRF_LOG_ERROR("Failed receiving NUS message. Error 0x%x. ", err_code);
-//                    APP_ERROR_CHECK(err_code);
-//                }
-                NRF_LOG_DEBUG("Received %d bytes", p_evt->params.rx_data.length);
-            } while (err_code == NRF_ERROR_BUSY);
-        }
-        if (p_evt->params.rx_data.p_data[p_evt->params.rx_data.length - 1] == '\r')
-        {
-//            while (app_uart_put('\n') == NRF_ERROR_BUSY)
-//                ;
+            // TODO parse the bytes
         }
     }
 
@@ -164,7 +151,7 @@ static void nus_data_handler(ble_nus_evt_t* p_evt)
  */
 static void services_init(void)
 {
-//    uint32_t err_code;
+    uint32_t err_code;
     ble_nus_init_t nus_init;
 //    nrf_ble_qwr_init_t qwr_init = { 0 };
 
@@ -179,8 +166,8 @@ static void services_init(void)
 
     nus_init.data_handler = nus_data_handler;
 
-//    err_code = ble_nus_init(&m_nus, &nus_init);
-//    APP_ERROR_CHECK(err_code);
+    err_code = ble_nus_init(&m_nus, &nus_init);
+    APP_ERROR_CHECK(err_code);
 }
 
 /**@brief Function for handling an event from the Connection Parameters Module.
@@ -249,11 +236,13 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
     switch (ble_adv_evt)
     {
         case BLE_ADV_EVT_FAST:
-            //            err_code = bsp_indication_set(BSP_INDICATE_ADVERTISING);
-//            APP_ERROR_CHECK(err_code);
+            NRF_LOG_DEBUG("BLE_ADV_EVT_FAST started")
+            ;
         break;
         case BLE_ADV_EVT_IDLE:
             //            sleep_mode_enter();
+            NRF_LOG_DEBUG("BLE_ADV_EVT_IDLE started")
+            ;
         break;
         default:
             break;
@@ -353,10 +342,78 @@ static void ble_stack_init(void)
     NRF_SDH_BLE_OBSERVER(m_ble_observer, APP_BLE_OBSERVER_PRIO, ble_evt_handler, NULL);
 }
 
-void bleStuff_init(void)
+/**@brief Function for handling events from the GATT library. */
+static void gatt_evt_handler(nrf_ble_gatt_t* p_gatt, nrf_ble_gatt_evt_t const* p_evt)
 {
+    if ((m_conn_handle == p_evt->conn_handle) && (p_evt->evt_id == NRF_BLE_GATT_EVT_ATT_MTU_UPDATED))
+    {
+        m_ble_nus_max_data_len = p_evt->params.att_mtu_effective - OPCODE_LENGTH - HANDLE_LENGTH;
+        NRF_LOG_INFO("Data len is set to 0x%X(%d)", m_ble_nus_max_data_len, m_ble_nus_max_data_len);
+    }
+    NRF_LOG_DEBUG("ATT MTU exchange completed. central 0x%x peripheral 0x%x",
+                  p_gatt->att_mtu_desired_central,
+                  p_gatt->att_mtu_desired_periph);
+}
 
+/**@brief Function for initializing the GATT library. */
+static void gatt_init(void)
+{
+    ret_code_t err_code;
+
+    err_code = nrf_ble_gatt_init(&m_gatt, gatt_evt_handler);
+    APP_ERROR_CHECK(err_code);
+
+    err_code = nrf_ble_gatt_att_mtu_periph_set(&m_gatt, NRF_SDH_BLE_GATT_MAX_MTU_SIZE);
+    APP_ERROR_CHECK(err_code);
+}
+
+/**@brief Function for initializing the Advertising functionality.
+ */
+static void advertising_init(void)
+{
+    uint32_t err_code;
+    ble_advertising_init_t init;
+
+    memset(&init, 0, sizeof(init));
+
+    init.advdata.name_type = BLE_ADVDATA_FULL_NAME;
+    init.advdata.include_appearance = false;
+    init.advdata.flags = BLE_GAP_ADV_FLAGS_LE_ONLY_LIMITED_DISC_MODE;
+
+    init.srdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
+    init.srdata.uuids_complete.p_uuids = m_adv_uuids;
+
+    init.config.ble_adv_fast_enabled = true;
+    init.config.ble_adv_fast_interval = APP_ADV_INTERVAL;
+    init.config.ble_adv_fast_timeout = APP_ADV_DURATION;
+    init.evt_handler = on_adv_evt;
+
+    err_code = ble_advertising_init(&m_advertising, &init);
+    APP_ERROR_CHECK(err_code);
+
+    ble_advertising_conn_cfg_tag_set(&m_advertising, APP_BLE_CONN_CFG_TAG);
+}
+
+void bleStuff_init(void)
+{ // Copied from ble_nus main.c
     ble_stack_init();
+    NRF_LOG_INFO("ble_stack_init done");
+    gap_params_init();
+    NRF_LOG_INFO("gap_params_init done");
+    gatt_init();
+    NRF_LOG_INFO("gatt_init done");
+    services_init();
+    NRF_LOG_INFO("services_init done");
+    advertising_init();
+    NRF_LOG_INFO("advertising_init done");
+    conn_params_init();
+    NRF_LOG_INFO("conn_params_init done");
+
+    uint32_t err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
+    if (NRF_SUCCESS != err_code)
+    {
+        NRF_LOG_WARNING("ble_advertising_start error %d");
+    }
 
 }
 

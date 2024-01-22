@@ -16,7 +16,9 @@
 #include <stdint.h>
 #include "uptimeCounter.h"
 
+#define NRF_LOG_MODULE_NAME main
 #include "nrf_log.h"
+NRF_LOG_MODULE_REGISTER();
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 

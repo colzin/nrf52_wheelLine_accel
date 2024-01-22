@@ -9,13 +9,16 @@
 
 #include "app_timer.h"
 
+#define NRF_LOG_MODULE_NAME uptimeCounter
 #include "nrf_log.h"
+NRF_LOG_MODULE_REGISTER();
 
 /*************************************************************************************
  *  Definitions
  ************************************************************************************/
 #define IDLE_TICK_ITVL_MS 500 // TODO we may not need to idle, if user shuts off power when done.
 #define RUNNING_TICK_ITVL_MS 5
+
 /*************************************************************************************
  *  Variables
  ************************************************************************************/
