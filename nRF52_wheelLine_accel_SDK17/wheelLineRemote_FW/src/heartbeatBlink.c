@@ -19,7 +19,7 @@
 // PCA10040 LEDs on 17, 18, 19, 29, active low
 #define HEARTBEAT_LED_GPIO_NUM 17
 
-#define  HEARTBEAT_LED_TOGGLE_MS 2000
+#define  HEARTBEAT_LED_TOGGLE_MS 1000
 /*************************************************************************************
  *  Variables
  ************************************************************************************/
@@ -35,7 +35,7 @@ static uint32_t m_lastToggle_ms;
 
 static void heartBlinkPoll(void)
 {
-    if (uptimeCounter_elapsedSince(m_lastToggle_ms) > HEARTBEAT_LED_TOGGLE_MS)
+    if (uptimeCounter_elapsedSince(m_lastToggle_ms) >= HEARTBEAT_LED_TOGGLE_MS)
     {
         if (NRF_P0->OUT & (1UL << HEARTBEAT_LED_GPIO_NUM))
         {

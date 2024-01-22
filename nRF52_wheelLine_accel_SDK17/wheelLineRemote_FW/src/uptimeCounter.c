@@ -35,7 +35,7 @@ static uint32_t m_nextPoll_ms;
 
 static void msTickHandler(void* pContext)
 {
-    m_roughUptime_ms++;
+    m_roughUptime_ms += m_nextPoll_ms;
 }
 
 uint32_t uptimeCounter_getUptimeMs(void)
@@ -54,7 +54,7 @@ void uptimeCounter_setTimeoutItvl(uint32_t desiredItvl_ms)
     {
         // re-set the timer
         app_timer_stop(m_uptimeTimer); // It's ok if it returns invalid state, if not running already.
-        ret_code_t ret = app_timer_start(m_uptimeTimer, desiredItvl_ms, NULL);
+        ret_code_t ret = app_timer_start(m_uptimeTimer, APP_TIMER_TICKS(desiredItvl_ms), NULL);
         if (NRF_SUCCESS != ret)
         {
             m_nextPoll_ms = 0; // Set to invalid
