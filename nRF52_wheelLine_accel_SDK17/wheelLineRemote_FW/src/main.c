@@ -11,6 +11,8 @@
 #include "bleStuff.h"
 #endif // #if NRF_SDH_ENABLED
 
+#include "heartbeatBlink.h"
+#include "i2c.h"
 #include "pollers.h"
 
 #include <stdint.h>
@@ -41,12 +43,14 @@ NRF_LOG_MODULE_REGISTER();
 static void initializeInputs(void)
 { // Inputs to our system
 
-  // Init any input pins, ADC, etc so we have those inputs set up and polled early.
+    // Init any input pins, ADC, etc so we have those inputs set up and polled early.
+    lis2dh_init();
 }
 
 static void initializeOutputs(void)
 { // outputs from our system, may make decisions based on pollers run as inputs
 // TODO Init output pin managers
+    i2c_init();
     heartblink_init();
 }
 static void log_init(void)
