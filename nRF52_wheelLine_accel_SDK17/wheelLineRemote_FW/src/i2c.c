@@ -32,7 +32,7 @@ static const nrfx_twi_config_t m_twi1Cfg =
         {
           .scl = 28,
           .sda = 29,
-          .frequency = NRF_TWI_FREQ_100K,
+          .frequency = NRF_TWI_FREQ_400K,
           .hold_bus_uninit = false,
           .interrupt_priority = APP_IRQ_PRIORITY_LOWEST,
         };
@@ -84,22 +84,46 @@ static void poll(void)
 }
 #endif // #if SCANNER_POLL
 
-ret_code_t i2c_readRegs(uint8_t devAddr, uint8_t regAddr, uint8_t* pData, uint32_t len)
+ret_code_t i2c_readByte(uint8_t devAddr, uint8_t regAddr, uint8_t* pData)
+{ // Write the address, then do a stop, then read as many bytes as caller wants
+    ret_code_t ret = nrfx_twi_tx(&m_twi1, devAddr, &regAddr, 1, true);
+    if (NRF_SUCCESS != ret)
+    {
+        NRF_LOG_ERROR("Error writing %1 byte: devAddr 0x%x", devAddr);
+        return ret;
+    }
+    ret = nrfx_twi_rx(&m_twi1, devAddr, pData, 1);
+    return ret;
+}
+
+ret_code_t i2c_readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t* pData, uint32_t len)
 { // Write the address, then do a stop, then read as many bytes as caller wants
     ret_code_t ret = nrfx_twi_tx(&m_twi1, devAddr, &regAddr, 1, false);
     if (NRF_SUCCESS != ret)
     {
+        NRF_LOG_ERROR("Error writing %1 byte: devAddr 0x%x", devAddr);
         return ret;
     }
     ret = nrfx_twi_rx(&m_twi1, devAddr, pData, len);
     return ret;
 }
 
-void i2c_init(void)
+ret_code_t i2c_writeBytes(uint8_t devAddr, uint8_t* pByte, uint32_t len)
+{ // Write the address, then data bytes
+    ret_code_t ret = nrfx_twi_tx(&m_twi1, devAddr, &pByte, len, false);
+    if (NRF_SUCCESS != ret)
+    {
+        NRF_LOG_ERROR("Error writing %d bytes to devAddr 0x%x", len, devAddr);
+        return ret;
+    }
+    return ret;
+}
+
+ret_code_t i2c_init(void)
 {
     if (m_twi1Enabled)
     {
-        return;
+        return NRF_SUCCESS;
     }
     // If we provide a handler, calls will be non-blocking.
     ret_code_t ret = nrfx_twi_init(&m_twi1, &m_twi1Cfg, NULL, NULL);

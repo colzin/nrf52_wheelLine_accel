@@ -12,7 +12,10 @@
 #endif // #if NRF_SDH_ENABLED
 
 #include "heartbeatBlink.h"
+#include "_4digit7seg.h"
 #include "i2c.h"
+#include "lis2dh.h"
+
 #include "pollers.h"
 
 #include <stdint.h>
@@ -50,8 +53,8 @@ static void initializeInputs(void)
 static void initializeOutputs(void)
 { // outputs from our system, may make decisions based on pollers run as inputs
 // TODO Init output pin managers
-    i2c_init();
     heartblink_init();
+    _4digit7seg_init();
 }
 static void log_init(void)
 {
