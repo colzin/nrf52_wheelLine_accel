@@ -366,6 +366,11 @@ static ret_code_t readAccelReg(uint8_t regAddr, uint8_t* pRxByte)
     return i2c_readByte(m_i2cAddr, regAddr, pRxByte);
 }
 
+static ret_code_t readAccelRegs(uint8_t regAddr, uint8_t* pRxByte, uint32_t len)
+{
+    return i2c_readBytes(m_i2cAddr, regAddr, pRxByte, len);
+}
+
 static ret_code_t setOpMode(lis2dh12_op_md_t val)
 {
     uint8_t ctrl_reg1;
@@ -411,28 +416,15 @@ static void accelInit(void)
         ret = readAccelReg(WHO_AM_I_REGADDR, &byte);
         if (NRF_SUCCESS != ret || WHO_AM_I_VALUE != byte)
         {
-            NRF_LOG_WARNING("LIS2DH12 not found at 0x%x, returned 0x%x, need 0x%x", m_i2cAddr, byte, WHO_AM_I_VALUE);
-            m_i2cAddr = LIS2DH12_I2C_ADD_H;
-            ret = readAccelReg(WHO_AM_I_REGADDR, &byte);
-            if (NRF_SUCCESS != ret || WHO_AM_I_VALUE != byte)
-            {
-                NRF_LOG_WARNING("LIS2DH12 not found at 0x%x, returned 0x%x, need 0x%x", m_i2cAddr, byte, WHO_AM_I_VALUE);
-                m_i2cAddr = LIS2DH12_I2C_ADD_L;
-                ret = readAccelReg(WHO_AM_I_REGADDR, &byte);
-                if (NRF_SUCCESS != ret || WHO_AM_I_VALUE != byte)
-                {
-                    NRF_LOG_ERROR("LIS2DH12 not found at 0x%x, returned 0x%x, need 0x%x", m_i2cAddr, byte,
-                                  WHO_AM_I_VALUE);
-                    return;
-                }
-            }
+            NRF_LOG_ERROR("LIS2DH12 not found at 0x%x, returned 0x%x, need 0x%x", m_i2cAddr, byte,
+                          WHO_AM_I_VALUE);
         }
     }
     ret = 0;
     // Set up all registers with values we need.
     ret |= writeAccelReg(CTRL_REG0_REGADDR, CTRL_REG0_B6_0_VALUE);
     ret |= writeAccelReg(TEMP_CFG_REGADDR, 0x00);
-    byte = CTRL_REG1_ODR(odr_25Hz);
+    byte = CTRL_REG1_ODR(odr_1Hz);
     // TODO can we ignore one of the axes when mounted properly?
     byte |= (CTRL_REG1_X_EN | CTRL_REG1_Y_EN | CTRL_REG1_Z_EN);
     // TODO should we enable LP mode? Probably don't need to.
@@ -478,6 +470,18 @@ static void accelInit(void)
     }
 }
 
+static void readSamples(uint32_t numSamples)
+{
+    uint8_t sixBytes[6];
+    uint16_t xSamp, ySamp, zSamp;
+    uint32_t xAvg, yAvg, zAvg;
+    for (uint32_t i = 0; i < numSamples; i++)
+    {   // Depends on mode how many bits. Standard is 10-bit.
+        readAccelRegs(OUT_X_L_REGADDR, sixBytes, 6);
+    }
+
+}
+
 static void poll(void)
 {
     if (!m_initted && uptimeCounter_elapsedSince(m_lastPoll_ms) > 1200)
@@ -499,13 +503,23 @@ static void poll(void)
             }
             else
             {
-                NRF_LOG_INFO("FIFO has %d bytes", FIFO_SRC_NUMUNREAD(byte));
+                uint32_t numSamples = FIFO_SRC_NUMUNREAD(byte);
+                NRF_LOG_INFO("FIFO has %d samples", numSamples);
+                readSamples(numSamples);
+                readAccelReg(FIFO_SRC_REGADDR, &byte);
+                if (byte & FIFO_SRC_EMPTY)
+                {
+                    NRF_LOG_DEBUG("no FIFO bytes after reading %d samples", numSamples);
+                }
+                else
+                {
+                    NRF_LOG_INFO("FIFO has %d samples after reading %d", FIFO_SRC_NUMUNREAD(byte));
+                }
             }
-            NRF_LOG_INFO("Fifo_SRC 0x%x", byte);
-        }
 
-        // TODO polling stuff: read values, decide where we are at, etc
-        m_lastPoll_ms = uptimeCounter_getUptimeMs();
+            // TODO polling stuff: read values, decide where we are at, etc
+            m_lastPoll_ms = uptimeCounter_getUptimeMs();
+        }
     }
 }
 

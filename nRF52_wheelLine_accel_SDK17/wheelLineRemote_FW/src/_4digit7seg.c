@@ -22,8 +22,8 @@ NRF_LOG_MODULE_REGISTER();
 // Display data address pointer, bits 3:0 are address bits. R/W
 #define HT16K33_ADDR_DDAP 0x00
 // System Setup, write only. b0 of system setup enables oscillator
-#define HT16K33_CMD_SYS_SETUP_OSC_ON 0x20
-#define HT16K33_CMD_SYS_SETUP_OSC_ON 0x21
+#define HT16K33_CMD_SYS_SETUP_OSC_OFF   0x20
+#define HT16K33_CMD_SYS_SETUP_OSC_ON    0x21
 // Key address data pointer, bits 3:0 are address bits. Read only.
 #define HT16K33_ADDR_KADP 0x40
 // INT flag address pointer, defines INT flag address. Reads INT flag status. Read only.
@@ -182,19 +182,21 @@ static const uint8_t sevensegfonttable[] =
           0b00000000, // del
         };
 
-typedef enum
-{
-    dispState_off,
-    dispState_onSolid,
-    dispState_blink2Hz,
-    dispState_blink1Hz,
-    dispState_blink0_5Hz,
-} dispState_t;
+#define POLL_ITVL_MS 1000 // non-zero to poll
+#if POLL_ITVL_MS
+#include "pollers.h"
+#include "uptimeCounter.h"
+#endif // #if POLL_ITVL_MS
+
 /*************************************************************************************
  *  Variables
  ************************************************************************************/
 
 static uint8_t m_position;
+
+#if POLL_ITVL_MS
+static uint32_t m_lastPoll_ms;
+#endif // #if POLL_ITVL_MS
 
 /*************************************************************************************
  *  Prototypes
@@ -235,11 +237,7 @@ void _4digit7seg_setDisplayState(dispState_t desired)
 
 void _4digit7seg_setBrightness(uint8_t zeroTo15)
 {
-    if (zeroTo15 > 15)
-    {
-        zeroTo15 = 15; // limit to max brightness
-    }
-    uint8_t buffer = HT16K33_CMD_BRIGHTNESS | zeroTo15;
+    uint8_t buffer = HT16K33_CMD_BRIGHTNESS | (zeroTo15 & 0x0F);
     i2c_writeBytes(HT16K33_DEVADDR, &buffer, 1);
 }
 
@@ -487,6 +485,18 @@ void _4digit7seg_printError(void)
     }
 }
 
+#if POLL_ITVL_MS
+static void poll(void)
+{
+    if (uptimeCounter_elapsedSince(m_lastPoll_ms) > POLL_ITVL_MS)
+    {
+        _4digit7seg_setBrightness((m_lastPoll_ms / 1000) % 15);
+        NRF_LOG_DEBUG("Set brightness to %d", (m_lastPoll_ms / 1000) % 15);
+        m_lastPoll_ms = uptimeCounter_getUptimeMs();
+    }
+}
+#endif // #if POLL_ITVL_MS
+
 void _4digit7seg_init(void)
 {
     m_position = 0;
@@ -525,13 +535,18 @@ void _4digit7seg_init(void)
     // when it is turned on.
     for (uint8_t i = 0; i < 8; i++)
     {
-        m_displaybuffer[i] = 0xFF;
+        m_displaybuffer[i] = i;
     }
     _4digit7seg_writeDisplay();
 
-    _4digit7seg_setDisplayState(dispState_blink2Hz);
+    _4digit7seg_setDisplayState(dispState_onSolid);
 
-    _4digit7seg_setBrightness(5); // max brightness
+    _4digit7seg_setBrightness(0); // 0 is still on
+
+#if POLL_ITVL_MS
+    m_lastPoll_ms = uptimeCounter_getUptimeMs();
+    pollers_registerPoller(poll);
+#endif // #if POLL_ITVL_MS
 
 }
 

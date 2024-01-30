@@ -14,7 +14,20 @@ extern "C" {
 
 #include <stdint.h>
 
-void _4digit7seg_clear(void);
+typedef enum
+{
+    dispState_off,
+    dispState_onSolid,
+    dispState_blink2Hz,
+    dispState_blink1Hz,
+    dispState_blink0_5Hz,
+}dispState_t;
+
+void _4digit7seg_setDisplayState(dispState_t desired);
+
+void _4digit7seg_setBrightness(uint8_t zeroTo15);
+
+void _4digit7seg_writeDisplay(void);
 
 void _4digit7seg_printU32(uint32_t n, int base);
 void _4digit7seg_println(void);
@@ -31,5 +44,4 @@ void _4digit7seg_init(void);
 #ifdef __cplusplus
 }
 #endif
-
 #endif /* SRC__4DIGIT7SEG_H_ */
