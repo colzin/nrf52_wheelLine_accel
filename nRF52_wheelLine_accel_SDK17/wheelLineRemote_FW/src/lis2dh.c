@@ -10,6 +10,8 @@
 #include "i2c.h"
 #include "pollers.h"
 
+#include "uptimeCounter.h"
+
 #define NRF_LOG_MODULE_NAME lis2dh
 #include "nrf_log.h"
 NRF_LOG_MODULE_REGISTER();
@@ -20,142 +22,13 @@ NRF_LOG_MODULE_REGISTER();
 
 /* Register definitions taken from
  * https://github.com/STMicroelectronics/lis2dh12-pid/blob/master/lis2dh12_reg.h
- */
-
-#ifndef DRV_BYTE_ORDER
-#ifndef __BYTE_ORDER__
-
-#define DRV_LITTLE_ENDIAN 1234
-#define DRV_BIG_ENDIAN    4321
-
-/** if _BYTE_ORDER is not defined, choose the endianness of your architecture
-  * by uncommenting the define which fits your platform endianness
-  */
-//#define DRV_BYTE_ORDER    DRV_BIG_ENDIAN
-#define DRV_BYTE_ORDER    DRV_LITTLE_ENDIAN
-
-#else /* defined __BYTE_ORDER__ */
-
-#define DRV_LITTLE_ENDIAN  __ORDER_LITTLE_ENDIAN__
-#define DRV_BIG_ENDIAN     __ORDER_BIG_ENDIAN__
-#define DRV_BYTE_ORDER     __BYTE_ORDER__
-
-#endif /* __BYTE_ORDER__*/
-#endif /* DRV_BYTE_ORDER */
-
-/**
- * @}
- *
- */
-
-/** @defgroup STMicroelectronics sensors common types
- * @{
- *
- */
-
-#ifndef MEMS_SHARED_TYPES
-#define MEMS_SHARED_TYPES
-
-typedef struct
-{
-#if DRV_BYTE_ORDER == DRV_LITTLE_ENDIAN
-    uint8_t bit0 :1;
-    uint8_t bit1 :1;
-    uint8_t bit2 :1;
-    uint8_t bit3 :1;
-    uint8_t bit4 :1;
-    uint8_t bit5 :1;
-    uint8_t bit6 :1;
-    uint8_t bit7 :1;
-#elif DRV_BYTE_ORDER == DRV_BIG_ENDIAN
-  uint8_t bit7       : 1;
-  uint8_t bit6       : 1;
-  uint8_t bit5       : 1;
-  uint8_t bit4       : 1;
-  uint8_t bit3       : 1;
-  uint8_t bit2       : 1;
-  uint8_t bit1       : 1;
-  uint8_t bit0       : 1;
-#endif /* DRV_BYTE_ORDER */
-} bitwise_t;
-
-#define PROPERTY_DISABLE                (0U)
-#define PROPERTY_ENABLE                 (1U)
-
-/** @addtogroup  Interfaces_Functions
- * @brief       This section provide a set of functions used to read and
- *              write a generic register of the device.
- *              MANDATORY: return 0 -> no Error.
- * @{
- *
- */
-typedef int32_t (*stmdev_write_ptr)(void*, uint8_t, const uint8_t*, uint16_t);
-typedef int32_t (*stmdev_read_ptr)(void*, uint8_t, uint8_t*, uint16_t);
-typedef void (*stmdev_mdelay_ptr)(uint32_t millisec);
-
-typedef struct
-{
-    /** Component mandatory fields **/
-    stmdev_write_ptr write_reg;
-    stmdev_read_ptr read_reg;
-    /** Component optional fields **/
-    stmdev_mdelay_ptr mdelay;
-    /** Customizable optional pointer **/
-    void* handle;
-} stmdev_ctx_t;
-
-/**
- * @}
- *
- */
-
-#endif /* MEMS_SHARED_TYPES */
-
-#ifndef MEMS_UCF_SHARED_TYPES
-#define MEMS_UCF_SHARED_TYPES
-
-/** @defgroup    Generic address-data structure definition
- * @brief       This structure is useful to load a predefined configuration
- *              of a sensor.
- *              You can create a sensor configuration by your own or using
- *              Unico / Unicleo tools available on STMicroelectronics
- *              web site.
- *
- * @{
- *
- */
-
-typedef struct
-{
-    uint8_t address;
-    uint8_t data;
-} ucf_line_t;
-
-/**
- * @}
- *
- */
-
-#endif /* MEMS_UCF_SHARED_TYPES */
-
-/**
- * @}
- *
- */
-
-/** @defgroup LIS2DH12_Infos
- * @{
- *
+ * AND
+ * lis2dh12.pdf datasheet, rev 6
  */
 
 /** I2C Device Address 8 bit format if SA0=0 -> 31 if SA0=1 -> 33 **/
 #define LIS2DH12_I2C_ADD_L   0x31U
 #define LIS2DH12_I2C_ADD_H   0x33U
-
-/**
- * @}
- *
- */
 
 #define STATUS_REG_AUX_REGADDR  0x07U
 // b7 not used
@@ -212,49 +85,31 @@ typedef enum
 #define CTRL_REG2_HPCF(x)       ((x<<4)&0x30) // b5:4 are HPCF
 typedef enum
 {
-    highpassCutoff_0 = 0,
-    highpassCutoff_1,
-    highpassCutoff_2,
-    highpassCutoff_3,
+    highpassCutoff_most = 0,
+    highpassCutoff_more,
+    highpassCutoff_some,
+    highpassCutoff_less,
 } ctrl2_hpcf_t;
+
 #define CTRL_REG2_FILTERED_DATA 0x08
 #define CTRL_REG2_HP_CLICK      0x04
 #define CTRL_REG2_HP_IA2        0x02
 #define CTRL_REG2_HP_IA1        0x01
 
 #define CTRL_REG3_REGADDR   0x22U
-#define CTRL_REG3_
-#define CTRL_REG3_
-#define CTRL_REG3_
-#define CTRL_REG3_
-#define CTRL_REG3_
-typedef struct
-{
-#if DRV_BYTE_ORDER == DRV_LITTLE_ENDIAN
-    uint8_t not_used_01 :1;
-    uint8_t i1_overrun :1;
-    uint8_t i1_wtm :1;
-    uint8_t not_used_02 :1;
-    uint8_t i1_zyxda :1;
-    uint8_t i1_ia2 :1;
-    uint8_t i1_ia1 :1;
-    uint8_t i1_click :1;
-#elif DRV_BYTE_ORDER == DRV_BIG_ENDIAN
-  uint8_t i1_click          : 1;
-  uint8_t i1_ia1            : 1;
-  uint8_t i1_ia2            : 1;
-  uint8_t i1_zyxda          : 1;
-  uint8_t not_used_02       : 1;
-  uint8_t i1_wtm            : 1;
-  uint8_t i1_overrun        : 1;
-  uint8_t not_used_01       : 1;
-#endif /* DRV_BYTE_ORDER */
-} lis2dh12_ctrl_reg3_t;
+#define CTRL_REG3_I1_CLICK  0x80
+#define CTRL_REG3_I1_IA1    0x40
+#define CTRL_REG3_I1_IA2    0x20
+#define CTRL_REG3_I1_ZYXDA  0x10
+// b3 must be zero
+#define CTRL_REG3_I1_WTM    0x04
+#define CTRL_REG3_I1_OVER   0x02
+// b0 unused
 
 #define CTRL_REG4_REGADDR           0x23U
 #define CTRL_REG4_BLOCKDATAUPDATE   0x80
 #define CTRL_REG4_DATALITTLEENDIAN  0x40 // little endian if set, big if clear
-#define CTRL_REG4_FSCALE_MASK       0x30 // fs 1:0
+#define CTRL_REG4_FULLSCALE(x)      (((x)<<4)&0x30) // b5:4 is fs 1:0
 typedef enum
 {
     fullScale_2g = 0,
@@ -262,8 +117,8 @@ typedef enum
     fullScale_8g,
     fullScale_16g
 } ctrl_reg4_fullscale_t;
-#define CTRL_REG4_HR            0x10
-#define CTRL_REG4_SELFTST_MASK  0x0C // st 1:0
+#define CTRL_REG4_HIGHRES       0x10
+#define CTRL_REG4_SELFTST(x)    ((x<<2) & 0x0C) // st 1:0
 typedef enum
 {
     selfTest_disabled = 0,
@@ -312,26 +167,29 @@ typedef enum
 #define OUT_Z_L_REGADDR 0x2CU
 #define OUT_Z_H_REGADDR 0x2DU
 
-#define FIFO_CTRL_REGADDR           0x2EU
-#define FIFO_CTRL_MODE_MASK         0xC0
-#define FIFO_CTRL_MODE_BYPASS       0x00
-#define FIFO_CTRL_MODE_FIFO         0x40
-#define FIFO_CTRL_MODE_STREAM       0x80
-#define FIFO_CTRL_MODE_STRM_TO_FIFO 0xC0
-#define FIFO_CTRL_TRIGGER_MASK      0x20
-#define FIFO_CTRL_THR_MASK          0x1F
+#define FIFO_CTRL_REGADDR   0x2EU
+#define FIFO_CTRL_MODE(x)   (((x)<<6) & 0xC0)
+typedef enum
+{
+    fifoMode_bypass = 0,
+    fifoMode_fifo,
+    fifoMode_stream,
+    fifoMode_streamToFifo,
+} fifoCtrlMode_t;
+#define FIFO_CTRL_TRIG_INT2  0x20 // 0 for trigger signal on INT1
+#define FIFO_CTRL_THR(x)     ((x) & 0x1F)
 
 #define FIFO_SRC_REGADDR        0x2FU
 #define FIFO_SRC_WTM            0x80
 #define FIFO_SRC_OVRN           0x40
 #define FIFO_SRC_EMPTY          0x20
-#define FIFO_SRC_NUMUNREAD_MASK 0x1F
+#define FIFO_SRC_NUMUNREAD(x)   ((x) & 0x1F)
 
 #define INT1_CFG_REGADDR    0x30U
 #define INT1_CFG_AOI        0x80
 #define INT1_CFG_6D         0x40
 #define INT1_CFG_ZHIE       0x20
-#define INT1_CFG_XLIE       0x10
+#define INT1_CFG_ZLIE       0x10
 #define INT1_CFG_YHIE       0x08
 #define INT1_CFG_YLIE       0x04
 #define INT1_CFG_XHIE       0x02
@@ -349,17 +207,17 @@ typedef enum
 
 #define INT1_THS_REGADDR    0x32U
 // b7 not used
-#define int1_THS_THS_MASK   0x7F
+#define INT1_THS_THS(x)  ((x) & 0x7F)
 
 #define INT1_DURATION_REGADDR  0x33U
 // b7 not used
-#define INT1_DURATION_MASK  0x7F
+#define INT1_DURATION(x)  ((x) & 0x7F)
 
 #define INT2_CFG_REGADDR    0x34U
 #define INT2_CFG_AOI        0x80
 #define INT2_CFG_6D         0x40
 #define INT2_CFG_ZHIE       0x20
-#define INT2_CFG_XLIE       0x10
+#define INT2_CFG_ZLIE       0x10
 #define INT2_CFG_YHIE       0x08
 #define INT2_CFG_YLIE       0x04
 #define INT2_CFG_XHIE       0x02
@@ -376,52 +234,23 @@ typedef enum
 #define INT2_SRC_XL         0x01
 
 #define INT2_THS_REGADDR    0x36U
-typedef struct
-{
-#if DRV_BYTE_ORDER == DRV_LITTLE_ENDIAN
-    uint8_t ths :7;
-    uint8_t not_used_01 :1;
-#elif DRV_BYTE_ORDER == DRV_BIG_ENDIAN
-  uint8_t not_used_01       : 1;
-  uint8_t ths               : 7;
-#endif /* DRV_BYTE_ORDER */
-} lis2dh12_int2_ths_t;
+// b7 not used
+#define INT2_THS_THS(x)  ((x) & 0x7F)
 
-#define LIS2DH12_INT2_DURATION        0x37U
-typedef struct
-{
-#if DRV_BYTE_ORDER == DRV_LITTLE_ENDIAN
-    uint8_t d :7;
-    uint8_t not_used_01 :1;
-#elif DRV_BYTE_ORDER == DRV_BIG_ENDIAN
-  uint8_t not_used_01       : 1;
-  uint8_t d                 : 7;
-#endif /* DRV_BYTE_ORDER */
-} lis2dh12_int2_duration_t;
+#define INT2_DURATION_REGADDR   0x37U
+// b7 not used
+#define INT2_DURATION(x)  ((x) & 0x7F)
 
-#define LIS2DH12_CLICK_CFG            0x38U
-typedef struct
-{
-#if DRV_BYTE_ORDER == DRV_LITTLE_ENDIAN
-    uint8_t xs :1;
-    uint8_t xd :1;
-    uint8_t ys :1;
-    uint8_t yd :1;
-    uint8_t zs :1;
-    uint8_t zd :1;
-    uint8_t not_used_01 :2;
-#elif DRV_BYTE_ORDER == DRV_BIG_ENDIAN
-  uint8_t not_used_01       : 2;
-  uint8_t zd                : 1;
-  uint8_t zs                : 1;
-  uint8_t yd                : 1;
-  uint8_t ys                : 1;
-  uint8_t xd                : 1;
-  uint8_t xs                : 1;
-#endif /* DRV_BYTE_ORDER */
-} lis2dh12_click_cfg_t;
+#define CLICK_CFG_REGADDR   0x38U
+// b7,6 not used
+#define CLICK_CFG_ZDOUBLE   0x20
+#define CLICK_CFG_ZSINGLE   0x10
+#define CLICK_CFG_YDOUBLE   0x08
+#define CLICK_CFG_YSINGLE   0x04
+#define CLICK_CFG_XDOUBLE   0x02
+#define CLICK_CFG_XSINGLE   0x01
 
-#define LIS2DH12_CLICK_SRC            0x39U
+#define CLICK_SRC_REGADDR   0x39U
 typedef struct
 {
 #if DRV_BYTE_ORDER == DRV_LITTLE_ENDIAN
@@ -445,7 +274,7 @@ typedef struct
 #endif /* DRV_BYTE_ORDER */
 } lis2dh12_click_src_t;
 
-#define LIS2DH12_CLICK_THS            0x3AU
+#define CLICK_THS_REGADDR   0x3AU
 typedef struct
 {
 #if DRV_BYTE_ORDER == DRV_LITTLE_ENDIAN
@@ -457,7 +286,7 @@ typedef struct
 #endif /* DRV_BYTE_ORDER */
 } lis2dh12_click_ths_t;
 
-#define LIS2DH12_TIME_LIMIT           0x3BU
+#define TIME_LIMIT_REGADDR 0x3BU
 typedef struct
 {
 #if DRV_BYTE_ORDER == DRV_LITTLE_ENDIAN
@@ -469,19 +298,19 @@ typedef struct
 #endif /* DRV_BYTE_ORDER */
 } lis2dh12_time_limit_t;
 
-#define LIS2DH12_TIME_LATENCY         0x3CU
+#define TIME_LATENCY_REGADDR    0x3CU
 typedef struct
 {
     uint8_t tla :8;
 } lis2dh12_time_latency_t;
 
-#define LIS2DH12_TIME_WINDOW          0x3DU
+#define TIME_WINDOW_REGADDR    0x3DU
 typedef struct
 {
     uint8_t tw :8;
 } lis2dh12_time_window_t;
 
-#define LIS2DH12_ACT_THS              0x3EU
+#define ACT_THS_REGADDR 0x3EU
 typedef struct
 {
 #if DRV_BYTE_ORDER == DRV_LITTLE_ENDIAN
@@ -493,63 +322,11 @@ typedef struct
 #endif /* DRV_BYTE_ORDER */
 } lis2dh12_act_ths_t;
 
-#define LIS2DH12_ACT_DUR              0x3FU
+#define ACT_DUR_REGADDR 0x3FU
 typedef struct
 {
     uint8_t actd :8;
 } lis2dh12_act_dur_t;
-
-/**
- * @defgroup LIS2DH12_Register_Union
- * @brief    This union group all the registers having a bit-field
- *           description.
- *           This union is useful but it's not needed by the driver.
- *
- *           REMOVING this union you are compliant with:
- *           MISRA-C 2012 [Rule 19.2] -> " Union are not allowed "
- *
- * @{
- *
- */
-typedef union
-{
-    lis2dh12_status_reg_aux_t status_reg_aux;
-    lis2dh12_ctrl_reg0_t ctrl_reg0;
-    lis2dh12_temp_cfg_reg_t temp_cfg_reg;
-    lis2dh12_ctrl_reg1_t ctrl_reg1;
-    lis2dh12_ctrl_reg2_t ctrl_reg2;
-    lis2dh12_ctrl_reg3_t ctrl_reg3;
-    lis2dh12_ctrl_reg4_t ctrl_reg4;
-    lis2dh12_ctrl_reg5_t ctrl_reg5;
-    lis2dh12_ctrl_reg6_t ctrl_reg6;
-    lis2dh12_status_reg_t status_reg;
-//    lis2dh12_fifo_ctrl_reg_t fifo_ctrl_reg;
-    lis2dh12_fifo_src_reg_t fifo_src_reg;
-    lis2dh12_int1_cfg_t int1_cfg;
-    lis2dh12_int1_src_t int1_src;
-    lis2dh12_int1_ths_t int1_ths;
-    lis2dh12_int1_duration_t int1_duration;
-    lis2dh12_int2_cfg_t int2_cfg;
-    lis2dh12_int2_src_t int2_src;
-    lis2dh12_int2_ths_t int2_ths;
-    lis2dh12_int2_duration_t int2_duration;
-    lis2dh12_click_cfg_t click_cfg;
-    lis2dh12_click_src_t click_src;
-    lis2dh12_click_ths_t click_ths;
-    lis2dh12_time_limit_t time_limit;
-    lis2dh12_time_latency_t time_latency;
-    lis2dh12_time_window_t time_window;
-    lis2dh12_act_ths_t act_ths;
-    lis2dh12_act_dur_t act_dur;
-    bitwise_t bitwise;
-    uint8_t byte;
-} lis2dh12_reg_t;
-
-typedef enum
-{
-    LIS2DH12_TEMP_DISABLE = 0,
-    LIS2DH12_TEMP_ENABLE = 3,
-} lis2dh12_temp_en_t;
 
 typedef enum
 {
@@ -558,47 +335,15 @@ typedef enum
     LIS2DH12_LP_8bit = 2,
 } lis2dh12_op_md_t;
 
-typedef enum
-{
-    LIS2DH12_POWER_DOWN = 0x00,
-    LIS2DH12_ODR_1Hz = 0x01,
-    LIS2DH12_ODR_10Hz = 0x02,
-    LIS2DH12_ODR_25Hz = 0x03,
-    LIS2DH12_ODR_50Hz = 0x04,
-    LIS2DH12_ODR_100Hz = 0x05,
-    LIS2DH12_ODR_200Hz = 0x06,
-    LIS2DH12_ODR_400Hz = 0x07,
-    LIS2DH12_ODR_1kHz620_LP = 0x08,
-    LIS2DH12_ODR_5kHz376_LP_1kHz344_NM_HP = 0x09,
-} lis2dh12_odr_t;
-
-typedef enum
-{
-    LIS2DH12_AGGRESSIVE = 0,
-    LIS2DH12_STRONG = 1,
-    LIS2DH12_MEDIUM = 2,
-    LIS2DH12_LIGHT = 3,
-} lis2dh12_hpcf_t;
-
-typedef enum
-{
-    LIS2DH12_NORMAL_WITH_RST = 0,
-    LIS2DH12_REFERENCE_MODE = 1,
-    LIS2DH12_NORMAL = 2,
-    LIS2DH12_AUTORST_ON_INT = 3,
-} lis2dh12_hpm_t;
-
-typedef enum
-{
-    LIS2DH12_2g = 0,
-    LIS2DH12_4g = 1,
-    LIS2DH12_8g = 2,
-    LIS2DH12_16g = 3,
-} lis2dh12_fs_t;
-
 /*************************************************************************************
  *  Variables
  ************************************************************************************/
+
+static uint8_t m_i2cAddr;
+static bool m_initted;
+
+static uint32_t m_lastPoll_ms;
+#define POLLITVL_MS 1000 // at 25Hz, it should have 25 samples per second.
 
 /*************************************************************************************
  *  Prototypes
@@ -613,86 +358,164 @@ static ret_code_t writeAccelReg(uint8_t regAddr, uint8_t byte)
     uint8_t toWrite[2];
     toWrite[0] = regAddr;
     toWrite[1] = byte;
-    return i2c_writeBytes(LIS2DH12_I2C_ADD_L, toWrite, 2);
+    return i2c_writeBytes(m_i2cAddr, toWrite, 2);
 }
 
 static ret_code_t readAccelReg(uint8_t regAddr, uint8_t* pRxByte)
 {
-    return i2c_readByte(LIS2DH12_I2C_ADD_L, regAddr, pRxByte);
+    return i2c_readByte(m_i2cAddr, regAddr, pRxByte);
 }
 
-static ret_code_t accel_operating_mode_set(const stmdev_ctx_t* ctx, lis2dh12_op_md_t val)
+static ret_code_t setOpMode(lis2dh12_op_md_t val)
 {
-    lis2dh12_ctrl_reg1_t ctrl_reg1;
-    lis2dh12_ctrl_reg4_t ctrl_reg4;
+    uint8_t ctrl_reg1;
+    uint8_t ctrl_reg4;
     ret_code_t ret;
 
-    ret = readAccelReg(LIS2DH12_CTRL_REG1, (uint8_t*)&ctrl_reg1);
-
-    if (ret == 0)
+    ret = readAccelReg(CTRL_REG1_REGADDR, &ctrl_reg1);
+    if (NRF_SUCCESS == ret)
     {
-        ret = readAccelReg(LIS2DH12_CTRL_REG4, (uint8_t*)&ctrl_reg4);
+        ret = readAccelReg(CTRL_REG4_REGADDR, &ctrl_reg4);
     }
-
-    if (ret == 0)
+    if (NRF_SUCCESS == ret)
     {
         if (val == LIS2DH12_HR_12bit)
         {
-            ctrl_reg1.lpen = 0;
-            ctrl_reg4.hr = 1;
+            ctrl_reg1 &= (uint8_t)(~CTRL_REG1_LPEN); // Clear Low power EN
+            ctrl_reg4 |= CTRL_REG4_HIGHRES; // Set High res
         }
-
         if (val == LIS2DH12_NM_10bit)
         {
-            ctrl_reg1.lpen = 0;
-            ctrl_reg4.hr = 0;
+            ctrl_reg1 &= (uint8_t)(~CTRL_REG1_LPEN); // Clear Low power EN
+            ctrl_reg4 &= (uint8_t)(~CTRL_REG4_HIGHRES); // Clear High Resolution
         }
-
         if (val == LIS2DH12_LP_8bit)
         {
-            ctrl_reg1.lpen = 1;
-            ctrl_reg4.hr = 0;
+            ctrl_reg1 |= CTRL_REG1_LPEN; // Set low-power
+            ctrl_reg4 &= (uint8_t)(~CTRL_REG4_HIGHRES); // Clear High Resolution
         }
-
-        ret = writeAccelReg(LIS2DH12_CTRL_REG1, (uint8_t)*((uint8_t*)&ctrl_reg1));
+        ret |= writeAccelReg(CTRL_REG1_REGADDR, ctrl_reg1);
+        ret |= writeAccelReg(CTRL_REG4_REGADDR, ctrl_reg4);
     }
-
-    if (ret == 0)
-    {
-        ret = writeAccelReg(LIS2DH12_CTRL_REG4, (uint8_t)*((uint8_t*)&ctrl_reg4));
-    }
-
     return ret;
 }
 static void accelInit(void)
 {
+    uint8_t byte = 0x00;
+    m_i2cAddr = LIS2DH12_I2C_ADD_H >> 1;
+    ret_code_t ret = readAccelReg(WHO_AM_I_REGADDR, &byte);
+    if (NRF_SUCCESS != ret || WHO_AM_I_VALUE != byte)
+    {
+        NRF_LOG_WARNING("LIS2DH12 not found at 0x%x, returned 0x%x, need 0x%x", m_i2cAddr, byte, WHO_AM_I_VALUE);
+        m_i2cAddr = LIS2DH12_I2C_ADD_L >> 1;
+        ret = readAccelReg(WHO_AM_I_REGADDR, &byte);
+        if (NRF_SUCCESS != ret || WHO_AM_I_VALUE != byte)
+        {
+            NRF_LOG_WARNING("LIS2DH12 not found at 0x%x, returned 0x%x, need 0x%x", m_i2cAddr, byte, WHO_AM_I_VALUE);
+            m_i2cAddr = LIS2DH12_I2C_ADD_H;
+            ret = readAccelReg(WHO_AM_I_REGADDR, &byte);
+            if (NRF_SUCCESS != ret || WHO_AM_I_VALUE != byte)
+            {
+                NRF_LOG_WARNING("LIS2DH12 not found at 0x%x, returned 0x%x, need 0x%x", m_i2cAddr, byte, WHO_AM_I_VALUE);
+                m_i2cAddr = LIS2DH12_I2C_ADD_L;
+                ret = readAccelReg(WHO_AM_I_REGADDR, &byte);
+                if (NRF_SUCCESS != ret || WHO_AM_I_VALUE != byte)
+                {
+                    NRF_LOG_ERROR("LIS2DH12 not found at 0x%x, returned 0x%x, need 0x%x", m_i2cAddr, byte,
+                                  WHO_AM_I_VALUE);
+                    return;
+                }
+            }
+        }
+    }
+    ret = 0;
+    // Set up all registers with values we need.
+    ret |= writeAccelReg(CTRL_REG0_REGADDR, CTRL_REG0_B6_0_VALUE);
+    ret |= writeAccelReg(TEMP_CFG_REGADDR, 0x00);
+    byte = CTRL_REG1_ODR(odr_25Hz);
+    // TODO can we ignore one of the axes when mounted properly?
+    byte |= (CTRL_REG1_X_EN | CTRL_REG1_Y_EN | CTRL_REG1_Z_EN);
+    // TODO should we enable LP mode? Probably don't need to.
+    ret |= writeAccelReg(CTRL_REG1_REGADDR, byte);
+    // TODO tune the high-pass filter
+    byte = CTRL_REG2_HPM(highPass_normalMode);
+    byte |= CTRL_REG2_HPCF(highpassCutoff_less);
+    // Filter data to registers through the highPass
+    byte |= CTRL_REG2_FILTERED_DATA;
+    ret |= writeAccelReg(CTRL_REG2_REGADDR, byte);
+    // Don't enable any interrupts. TODO, wire INT pin to MCU, and interrupt on fifo watermark?
+    ret |= writeAccelReg(CTRL_REG3_REGADDR, 0x00);
+    byte = CTRL_REG4_BLOCKDATAUPDATE;
+    byte |= CTRL_REG4_FULLSCALE(fullScale_2g);
+    // TODO do we need to set high-res mode?
+//    byte |= CTRL_REG4_HIGHRES;
+    ret |= writeAccelReg(CTRL_REG4_REGADDR, byte);
+    byte = CTRL_REG5_FIFO_EN;
+    ret |= writeAccelReg(CTRL_REG5_REGADDR, byte);
+    byte = CTRL_REG6_INT_POLARITY;
+    ret |= writeAccelReg(CTRL_REG6_REGADDR, byte);
+    // Read Reference register, to reset filtering block, as recommended.
+    ret |= readAccelReg(REFERENCE_REGADDR, &byte);
     // Enable Stream mode, TODO bits 4:0, what should we set?
-    writeAccelReg(FIFO_CTRL_REG_ADDR, FIFO_CTRL_MODE_STREAM);
-    // Enable FIFO in ctrl_reg5
-    uint8_t byte;
-    readAccelReg (ctrl_reg5)
+    byte = FIFO_CTRL_MODE(fifoMode_stream); // Stream so it always has the latest data.
+    byte |= FIFO_CTRL_THR(0xFF); // Threshold as large as possible
+    ret |= writeAccelReg(FIFO_CTRL_REGADDR, byte);
+    // Disable INT1 interrupts
+    ret |= writeAccelReg(INT1_CFG_REGADDR, 0x00);
+    // Disable INT2 interrupts
+    ret |= writeAccelReg(INT2_CFG_REGADDR, 0x00);
+    // Disable Click detection
+    ret |= writeAccelReg(CLICK_CFG_REGADDR, 0x00);
+    // Don't set up activity
+    if (NRF_SUCCESS == ret)
+    {
+        NRF_LOG_INFO("LIS2DH12 init success, I2C address 0x%x", m_i2cAddr);
+        m_initted = true;
+    }
+    else
+    { // Log error(s)
+        NRF_LOG_ERROR("LIS2DH init error somewhere, ORed error %d", ret);
+    }
 }
+
 static void poll(void)
 {
+    if (!m_initted && uptimeCounter_elapsedSince(m_lastPoll_ms) > 1200)
+    { // Wait a while between re-inits
+        accelInit();
+        m_lastPoll_ms = uptimeCounter_getUptimeMs();
+    }
+    if (m_initted && uptimeCounter_elapsedSince(m_lastPoll_ms) > POLLITVL_MS)
+    {
+        uint8_t byte;
+        readAccelReg(STATUS_REGADDR, &byte);
+        if (byte)
+        {
+            NRF_LOG_DEBUG("Status reg 0x%x", byte);
+            readAccelReg(FIFO_SRC_REGADDR, &byte);
+            if (byte & FIFO_SRC_EMPTY)
+            {
+                NRF_LOG_DEBUG("no FIFO bytes");
+            }
+            else
+            {
+                NRF_LOG_INFO("FIFO has %d bytes", FIFO_SRC_NUMUNREAD(byte));
+            }
+            NRF_LOG_INFO("Fifo_SRC 0x%x", byte);
+        }
 
+        // TODO polling stuff: read values, decide where we are at, etc
+        m_lastPoll_ms = uptimeCounter_getUptimeMs();
+    }
 }
+
 void lis2dh_init(void)
 {
-
+    m_initted = false;
+    m_lastPoll_ms = uptimeCounter_getUptimeMs();
     i2c_init(); // Make sure bus is enabled.
-    uint8_t data = 0x00;
-    ret_code_t ret = readAccelReg(LIS2DH12_WHO_AM_I, &data);
-    if (NRF_SUCCESS != ret)
-    {
-        NRF_LOG_ERROR("LIS2DH init failed to read I2C, error %d", ret);
-        return;
-    }
-    if (LIS2DH12_WHOAMI_VALUE != data)
-    {
-        NRF_LOG_ERROR("Read LIS2DH WHOAMI 0x%x, SHOULD BE 0x%x", data, LIS2DH12_WHOAMI_VALUE);
-        return;
-    }
-    // TODO init LIS2DH12 parameters the way we want.
+
+    // Init params, set it up the way we want, if we can.
     accelInit();
     pollers_registerPoller(poll);
 }

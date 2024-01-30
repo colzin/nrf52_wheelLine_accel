@@ -493,7 +493,8 @@ void _4digit7seg_init(void)
     i2c_init(); // Make sure bus is enabled.
 
     // turn on oscillator
-    i2c_writeByte(HT16K33_DEVADDR, HT16K33_CMD_SYS_SETUP_OSC_ON);
+    uint8_t byte = HT16K33_CMD_SYS_SETUP_OSC_ON;
+    i2c_writeBytes(HT16K33_DEVADDR, &byte, 1);
 
     uint8_t rxByte = 0x12;
     ret_code_t ret = i2c_readByte(HT16K33_DEVADDR, HT16K33_ADDR_DDAP, &rxByte);

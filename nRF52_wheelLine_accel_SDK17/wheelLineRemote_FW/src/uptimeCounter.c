@@ -9,6 +9,8 @@
 
 #include "app_timer.h"
 
+#include "utils.h"
+
 #define NRF_LOG_MODULE_NAME uptimeCounter
 #include "nrf_log.h"
 NRF_LOG_MODULE_REGISTER();

@@ -21,6 +21,8 @@ NRF_LOG_MODULE_REGISTER();
  *  Definitions
  ************************************************************************************/
 
+#define SCANNER_POLL_ITVL_MS 0 // Define non-zero to scan every ms
+
 /*************************************************************************************
  *  Variables
  ************************************************************************************/
@@ -42,9 +44,10 @@ static const nrfx_twi_config_t m_twi1Cfg =
 
 static bool m_twi1Enabled = false;
 
-#if SCANNER_POLL
+#if SCANNER_POLL_ITVL_MS
 static uint32_t m_lastPoll_ms;
-#endif // #if SCANNER_POLL
+#include "uptimeCounter.h"
+#endif // #if SCANNER_POLL_ITVL_MS
 /*************************************************************************************
  *  Prototypes
  ************************************************************************************/
@@ -52,9 +55,8 @@ static uint32_t m_lastPoll_ms;
 /*************************************************************************************
  *  Functions
  ************************************************************************************/
-#if SCANNER_POLL
-static void evtHandler(nrfx_twi_evt_t const* p_event,
-                       void* p_context)
+#if SCANNER_POLL_ITVL_MS
+static void evtHandler(nrfx_twi_evt_t const* p_event, void* p_context)
 {
     NRF_LOG_WARNING("nrfx_twi_evt_t type  %d", p_event->type);
 }
@@ -72,27 +74,38 @@ static void scanAllAddresses(void)
         }
     }
 }
-#define POLL_ITVL_MS 2000
 static void poll(void)
 {
-
-    if (uptimeCounter_elapsedSince(m_lastPoll_ms) > POLL_ITVL_MS)
+    if (uptimeCounter_elapsedSince(m_lastPoll_ms) > SCANNER_POLL_ITVL_MS)
     {
         scanAllAddresses();
         m_lastPoll_ms = uptimeCounter_getUptimeMs();
     }
 }
-#endif // #if SCANNER_POLL
+#endif // #if SCANNER_POLL_ITVL_MS
 
 ret_code_t i2c_readByte(uint8_t devAddr, uint8_t regAddr, uint8_t* pData)
 { // Write the address, then do a stop, then read as many bytes as caller wants
     ret_code_t ret = nrfx_twi_tx(&m_twi1, devAddr, &regAddr, 1, true);
+
     if (NRF_SUCCESS != ret)
     {
-        NRF_LOG_ERROR("Error writing %1 byte: devAddr 0x%x", devAddr);
+        if (NRFX_ERROR_DRV_TWI_ERR_ANACK == ret)
+        {
+            NRF_LOG_WARNING("i2c_readByte Address 0x%x NACKed", devAddr);
+        }
+        else
+        {
+            NRF_LOG_ERROR("i2c_readByte Error 0x%x writing devAddr 0x%x", ret, devAddr);
+        }
         return ret;
     }
     ret = nrfx_twi_rx(&m_twi1, devAddr, pData, 1);
+    if (NRF_SUCCESS != ret)
+    {
+        NRF_LOG_ERROR("i2c_readByte Error 0x%x reading byte", ret);
+        return ret;
+    }
     return ret;
 }
 
@@ -101,19 +114,38 @@ ret_code_t i2c_readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t* pData, uint3
     ret_code_t ret = nrfx_twi_tx(&m_twi1, devAddr, &regAddr, 1, false);
     if (NRF_SUCCESS != ret)
     {
-        NRF_LOG_ERROR("Error writing %1 byte: devAddr 0x%x", devAddr);
+        if (NRFX_ERROR_DRV_TWI_ERR_ANACK == ret)
+        {
+            NRF_LOG_WARNING("i2c_readBytes Address 0x%x NACKed", devAddr);
+        }
+        else
+        {
+            NRF_LOG_ERROR("i2c_readByte Error 0x%x writing devAddr 0x%x", ret, devAddr);
+        }
         return ret;
     }
     ret = nrfx_twi_rx(&m_twi1, devAddr, pData, len);
+    if (NRF_SUCCESS != ret)
+    {
+        NRF_LOG_ERROR("i2c_readBytes Error 0x%x reading bytes", ret);
+        return ret;
+    }
     return ret;
 }
 
 ret_code_t i2c_writeBytes(uint8_t devAddr, uint8_t* pByte, uint32_t len)
 { // Write the address, then data bytes
-    ret_code_t ret = nrfx_twi_tx(&m_twi1, devAddr, &pByte, len, false);
+    ret_code_t ret = nrfx_twi_tx(&m_twi1, devAddr, pByte, len, false);
     if (NRF_SUCCESS != ret)
     {
-        NRF_LOG_ERROR("Error writing %d bytes to devAddr 0x%x", len, devAddr);
+        if (NRFX_ERROR_DRV_TWI_ERR_ANACK == ret)
+        {
+            NRF_LOG_WARNING("i2c_writeBytes Address 0x%x NACKed", devAddr);
+        }
+        else
+        {
+            NRF_LOG_ERROR("i2c_writeBytes Error 0x%x writing %d bytes to devAddr 0x%x", ret, len, devAddr);
+        }
         return ret;
     }
     return ret;
@@ -129,17 +161,20 @@ ret_code_t i2c_init(void)
     ret_code_t ret = nrfx_twi_init(&m_twi1, &m_twi1Cfg, NULL, NULL);
     if (NRF_SUCCESS != ret)
     {
-        NRF_LOG_ERROR("TWI_init err %d", ret);
+        NRF_LOG_ERROR("TWI_init err 0x%x", ret);
+        return ret;
     }
     else
     {
-        // Mux pullups on the pins for the bus to work.
-        NRF_P0->PIN_CNF[m_twi1Cfg.scl] |= (GPIO_PIN_CNF_PULL_Pullup << GPIO_PIN_CNF_PULL_Pos);
-        NRF_P0->PIN_CNF[m_twi1Cfg.sda] |= (GPIO_PIN_CNF_PULL_Pullup << GPIO_PIN_CNF_PULL_Pos);
+        // Mux pullups on the pins for the bus to work, ONLY if no HW pullup is on the lines
+//        NRF_P0->PIN_CNF[m_twi1Cfg.scl] |= (GPIO_PIN_CNF_PULL_Pullup << GPIO_PIN_CNF_PULL_Pos);
+//        NRF_P0->PIN_CNF[m_twi1Cfg.sda] |= (GPIO_PIN_CNF_PULL_Pullup << GPIO_PIN_CNF_PULL_Pos);
         nrfx_twi_enable(&m_twi1);
         m_twi1Enabled = true;
-#if SCANNER_POLL
+#if SCANNER_POLL_ITVL_MS
+        m_lastPoll_ms = uptimeCounter_getUptimeMs();
         pollers_registerPoller(poll);
-#endif // #if SCANNER_POLL
+#endif // #if SCANNER_POLL_ITVL_MS
     }
+    return NRF_SUCCESS;
 }
