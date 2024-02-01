@@ -111,7 +111,7 @@ ret_code_t i2c_readByte(uint8_t devAddr, uint8_t regAddr, uint8_t* pData)
 
 ret_code_t i2c_readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t* pData, uint32_t len)
 { // Write the address, then do a stop, then read as many bytes as caller wants
-    ret_code_t ret = nrfx_twi_tx(&m_twi1, devAddr, &regAddr, 1, false);
+    ret_code_t ret = nrfx_twi_tx(&m_twi1, devAddr, &regAddr, 1, true);
     if (NRF_SUCCESS != ret)
     {
         if (NRFX_ERROR_DRV_TWI_ERR_ANACK == ret)

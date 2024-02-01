@@ -8,6 +8,7 @@
 #include "lis2dh.h"
 
 #include "i2c.h"
+#include "nrf_delay.h"
 #include "pollers.h"
 
 #include "uptimeCounter.h"
@@ -29,6 +30,9 @@ NRF_LOG_MODULE_REGISTER();
 /** I2C Device Address 8 bit format if SA0=0 -> 31 if SA0=1 -> 33 **/
 #define LIS2DH12_I2C_ADD_L   0x31U
 #define LIS2DH12_I2C_ADD_H   0x33U
+
+// See datasheet 6.1.1 - I2C Operation
+#define AUTO_INCREMENT_MASK 0x80 // If this mask is applied, the I2C slave auto-increments after a write or read.
 
 #define STATUS_REG_AUX_REGADDR  0x07U
 // b7 not used
@@ -330,10 +334,11 @@ typedef struct
 
 typedef enum
 {
-    LIS2DH12_HR_12bit = 0,
-    LIS2DH12_NM_10bit = 1,
-    LIS2DH12_LP_8bit = 2,
-} lis2dh12_op_md_t;
+    opMode_highRes_12bit = 0,
+    opMode_normal_10bit = 1,
+    opMode_lowPower_8bit = 2,
+    opMode_invalid,
+} opMode_t;
 
 /*************************************************************************************
  *  Variables
@@ -341,9 +346,10 @@ typedef enum
 
 static uint8_t m_i2cAddr;
 static bool m_initted;
+static opMode_t m_opMode;
 
 static uint32_t m_lastPoll_ms;
-#define POLLITVL_MS 1000 // at 25Hz, it should have 25 samples per second.
+static uint32_t m_desiredPollItvl_ms;
 
 /*************************************************************************************
  *  Prototypes
@@ -366,12 +372,7 @@ static ret_code_t readAccelReg(uint8_t regAddr, uint8_t* pRxByte)
     return i2c_readByte(m_i2cAddr, regAddr, pRxByte);
 }
 
-static ret_code_t readAccelRegs(uint8_t regAddr, uint8_t* pRxByte, uint32_t len)
-{
-    return i2c_readBytes(m_i2cAddr, regAddr, pRxByte, len);
-}
-
-static ret_code_t setOpMode(lis2dh12_op_md_t val)
+static ret_code_t setOpMode(opMode_t desiredMode)
 {
     uint8_t ctrl_reg1;
     uint8_t ctrl_reg4;
@@ -384,17 +385,17 @@ static ret_code_t setOpMode(lis2dh12_op_md_t val)
     }
     if (NRF_SUCCESS == ret)
     {
-        if (val == LIS2DH12_HR_12bit)
+        if (desiredMode == opMode_highRes_12bit)
         {
             ctrl_reg1 &= (uint8_t)(~CTRL_REG1_LPEN); // Clear Low power EN
             ctrl_reg4 |= CTRL_REG4_HIGHRES; // Set High res
         }
-        if (val == LIS2DH12_NM_10bit)
+        if (desiredMode == opMode_normal_10bit)
         {
             ctrl_reg1 &= (uint8_t)(~CTRL_REG1_LPEN); // Clear Low power EN
             ctrl_reg4 &= (uint8_t)(~CTRL_REG4_HIGHRES); // Clear High Resolution
         }
-        if (val == LIS2DH12_LP_8bit)
+        if (desiredMode == opMode_lowPower_8bit)
         {
             ctrl_reg1 |= CTRL_REG1_LPEN; // Set low-power
             ctrl_reg4 &= (uint8_t)(~CTRL_REG4_HIGHRES); // Clear High Resolution
@@ -402,10 +403,15 @@ static ret_code_t setOpMode(lis2dh12_op_md_t val)
         ret |= writeAccelReg(CTRL_REG1_REGADDR, ctrl_reg1);
         ret |= writeAccelReg(CTRL_REG4_REGADDR, ctrl_reg4);
     }
+    if (NRF_SUCCESS == ret)
+    {
+        m_opMode = desiredMode;
+    }
     return ret;
 }
-static void accelInit(void)
+static ret_code_t accelInit(void)
 {
+    NRF_LOG_DEBUG("Starting accel init:");
     uint8_t byte = 0x00;
     m_i2cAddr = LIS2DH12_I2C_ADD_H >> 1;
     ret_code_t ret = readAccelReg(WHO_AM_I_REGADDR, &byte);
@@ -418,46 +424,70 @@ static void accelInit(void)
         {
             NRF_LOG_ERROR("LIS2DH12 not found at 0x%x, returned 0x%x, need 0x%x", m_i2cAddr, byte,
                           WHO_AM_I_VALUE);
+            return ret;
         }
     }
     ret = 0;
+    // reset the chip to defaults
+    ret = writeAccelReg(CTRL_REG5_REGADDR, CTRL_REG5_MEM_REBOOT);
+    if (NRF_SUCCESS != ret)
+    {
+        NRF_LOG_ERROR("Error rebooting LIS2DH12");
+    }
+    // LIS2DH12 specifies 5ms max boot time
+    nrf_delay_ms(5);
+    ret = readAccelReg(WHO_AM_I_REGADDR, &byte);
+    if (NRF_SUCCESS != ret || WHO_AM_I_VALUE != byte)
+    {
+        NRF_LOG_ERROR("Error after reboot of LIS2DH12, WHOAMI 0x%x, need 0x%x", byte, WHO_AM_I_VALUE);
+    }
+
     // Set up all registers with values we need.
-    ret |= writeAccelReg(CTRL_REG0_REGADDR, CTRL_REG0_B6_0_VALUE);
-    ret |= writeAccelReg(TEMP_CFG_REGADDR, 0x00);
-    byte = CTRL_REG1_ODR(odr_1Hz);
+//    ret |= writeAccelReg(CTRL_REG0_REGADDR, CTRL_REG0_B6_0_VALUE);
+//    ret |= writeAccelReg(TEMP_CFG_REGADDR, 0x00);
+    byte = CTRL_REG1_ODR(odr_50Hz);
     // TODO can we ignore one of the axes when mounted properly?
     byte |= (CTRL_REG1_X_EN | CTRL_REG1_Y_EN | CTRL_REG1_Z_EN);
     // TODO should we enable LP mode? Probably don't need to.
     ret |= writeAccelReg(CTRL_REG1_REGADDR, byte);
-    // TODO tune the high-pass filter
-    byte = CTRL_REG2_HPM(highPass_normalMode);
-    byte |= CTRL_REG2_HPCF(highpassCutoff_less);
-    // Filter data to registers through the highPass
-    byte |= CTRL_REG2_FILTERED_DATA;
-    ret |= writeAccelReg(CTRL_REG2_REGADDR, byte);
+
+    // We do NOT want high-pass filtering, we need absolute positioning
+//    byte = CTRL_REG2_HPM(highPass_normalMode);
+//    ret |= writeAccelReg(CTRL_REG2_REGADDR, byte);
     // Don't enable any interrupts. TODO, wire INT pin to MCU, and interrupt on fifo watermark?
-    ret |= writeAccelReg(CTRL_REG3_REGADDR, 0x00);
+//    ret |= writeAccelReg(CTRL_REG3_REGADDR, 0x00);
     byte = CTRL_REG4_BLOCKDATAUPDATE;
     byte |= CTRL_REG4_FULLSCALE(fullScale_2g);
     // TODO do we need to set high-res mode?
 //    byte |= CTRL_REG4_HIGHRES;
+    m_opMode = opMode_normal_10bit;
     ret |= writeAccelReg(CTRL_REG4_REGADDR, byte);
-    byte = CTRL_REG5_FIFO_EN;
-    ret |= writeAccelReg(CTRL_REG5_REGADDR, byte);
-    byte = CTRL_REG6_INT_POLARITY;
-    ret |= writeAccelReg(CTRL_REG6_REGADDR, byte);
+    // Do ctrl_reg5 AFTER setting up the FIFO parameters
+//    byte = CTRL_REG6_INT_POLARITY;
+//    ret |= writeAccelReg(CTRL_REG6_REGADDR, byte);
     // Read Reference register, to reset filtering block, as recommended.
     ret |= readAccelReg(REFERENCE_REGADDR, &byte);
-    // Enable Stream mode, TODO bits 4:0, what should we set?
+    // Enable Stream mode, bits 4:0 FIFO size, set as large as possible
     byte = FIFO_CTRL_MODE(fifoMode_stream); // Stream so it always has the latest data.
     byte |= FIFO_CTRL_THR(0xFF); // Threshold as large as possible
     ret |= writeAccelReg(FIFO_CTRL_REGADDR, byte);
+
+    /* Set poll interval based on ODR and FIFO size
+     * At 100Hz ODR, FIFO 31 samples, we will get a sample every 10ms, can poll every 310ms.
+     * At 50Hz ODR, FIFO 31 samples, we will get 31 samples every 600ms
+     * TODO change if ODR changes, to read all samples.
+     */
+    m_desiredPollItvl_ms = 580;
+
+    byte = CTRL_REG5_FIFO_EN;
+    ret |= writeAccelReg(CTRL_REG5_REGADDR, byte);
+
     // Disable INT1 interrupts
-    ret |= writeAccelReg(INT1_CFG_REGADDR, 0x00);
+//    ret |= writeAccelReg(INT1_CFG_REGADDR, 0x00);
     // Disable INT2 interrupts
-    ret |= writeAccelReg(INT2_CFG_REGADDR, 0x00);
+//    ret |= writeAccelReg(INT2_CFG_REGADDR, 0x00);
     // Disable Click detection
-    ret |= writeAccelReg(CLICK_CFG_REGADDR, 0x00);
+//    ret |= writeAccelReg(CLICK_CFG_REGADDR, 0x00);
     // Don't set up activity
     if (NRF_SUCCESS == ret)
     {
@@ -468,58 +498,171 @@ static void accelInit(void)
     { // Log error(s)
         NRF_LOG_ERROR("LIS2DH init error somewhere, ORed error %d", ret);
     }
+    return ret;
 }
 
-static void readSamples(uint32_t numSamples)
+static void convertSamples(uint8_t* pRawData, int16_t* pConvertedSamples, uint32_t numSamples)
 {
-    uint8_t sixBytes[6];
-    uint16_t xSamp, ySamp, zSamp;
-    uint32_t xAvg, yAvg, zAvg;
     for (uint32_t i = 0; i < numSamples; i++)
-    {   // Depends on mode how many bits. Standard is 10-bit.
-        readAccelRegs(OUT_X_L_REGADDR, sixBytes, 6);
+    {
+        /* Each 6 bytes is 1 sample of X, Y, and Z.
+         * All data is left-justified, and LSByte is first, eg OUT_X_L=0x28, OUT_X_H=0x29
+         * Left shift generates zeroes to the right, right-shifts should generate sign bits to the left (usually).
+         * So, put uint8[1] into upper 8 bits, uint8[0] into lower 8 bits.
+         * Then shift right by however many bits, as per resolution mode bits: 12bit, 10bit, or 8bit.
+         */
+        pConvertedSamples[i * 3] = (int16_t)(((int16_t)pRawData[i * 6 + 1]) << 8);
+        // OR in the LSByte
+        pConvertedSamples[i * 3] |= pRawData[i * 3];
+        pConvertedSamples[i * 3 + 1] = (int16_t)(((int16_t)pRawData[i * 6 + 3]) << 8);
+        pConvertedSamples[i * 3 + 1] |= pRawData[i * 6 + 2];
+        pConvertedSamples[i * 3 + 2] = (int16_t)(((int16_t)pRawData[i * 6 + 5]) << 8);
+        pConvertedSamples[i * 3 + 2] |= pRawData[i * 6 + 4];
+        switch (m_opMode)
+        {
+            case opMode_highRes_12bit:
+                // Shift down by 16-12=4 bits
+                pConvertedSamples[i * 3] >>= 4;
+                pConvertedSamples[i * 3 + 1] >>= 4;
+                pConvertedSamples[i * 3 + 2] >>= 4;
+            break;
+            case opMode_normal_10bit:
+                // Shift down by 16-10=6 bits
+                pConvertedSamples[i * 3] >>= 6;
+                pConvertedSamples[i * 3 + 1] >>= 6;
+                pConvertedSamples[i * 3 + 2] >>= 6;
+            break;
+            case opMode_lowPower_8bit:
+                // Shift down by 16-8=8 bits
+                pConvertedSamples[i * 3] >>= 8;
+                pConvertedSamples[i * 3 + 1] >>= 8;
+                pConvertedSamples[i * 3 + 2] >>= 8;
+            break;
+            default:
+                NRF_LOG_ERROR("opMode %d not supported", m_opMode)
+                ;
+            break;
+        }
+//        NRF_LOG_DEBUG("Sample %d: X: %d, Y: %d, Z: %d", i, pConvertedSamples[i * 3 + 0], pConvertedSamples[i * 3 + 1],
+//                      pConvertedSamples[i * 3 + 2]);
     }
+}
 
+static void findMinMaxAverage(int16_t* pSamples, uint32_t numSamples, int16_t* pXavg, int16_t* pYavg, int16_t* pZavg)
+{
+    int16_t minX = 1000, maxX = -1000, minY = 1000, maxY = -1000, minZ = 1000, maxZ = -1000;
+    int32_t avgX = 0, avgY = 0, avgZ = 0;
+    for (uint32_t i = 0; i < numSamples; i++)
+    {
+        if (pSamples[i * 3] < minX)
+        {
+            minX = pSamples[i * 3];
+        }
+        if (pSamples[i * 3] > maxX)
+        {
+            maxX = pSamples[i * 3];
+        }
+        if (pSamples[i * 3 + 1] < minY)
+        {
+            minY = pSamples[i * 3 + 1];
+        }
+        if (pSamples[i * 3 + 1] > maxY)
+        {
+            maxY = pSamples[i * 3 + 1];
+        }
+        if (pSamples[i * 3 + 2] < minZ)
+        {
+            minZ = pSamples[i * 3 + 2];
+        }
+        if (pSamples[i * 3 + 2] > maxZ)
+        {
+            maxZ = pSamples[i * 3 + 2];
+        }
+        avgX += pSamples[i * 3];
+        avgY += pSamples[i * 3 + 1];
+        avgZ += pSamples[i * 3 + 2];
+    }
+    avgX /= (int32_t)numSamples;
+    avgY /= (int32_t)numSamples;
+    avgZ /= (int32_t)numSamples;
+    *pXavg = (int16_t)avgX;
+    *pYavg = (int16_t)avgY;
+    *pZavg = (int16_t)avgZ;
+    NRF_LOG_DEBUG("%d Sample min:     %d,\t%d,\t%d.", numSamples, minX, minY, minZ);
+    NRF_LOG_DEBUG("%d Sample average: %d,\t%d,\t%d.", numSamples, *pXavg, *pYavg, *pZavg);
+    NRF_LOG_DEBUG("%d Sample max:     %d,\t%d,\t%d.", numSamples, maxX, maxY, maxZ);
+}
+
+static void readSamples(void)
+{
+    uint8_t byte;
+    //        readAccelReg(STATUS_REGADDR, &byte);
+    //            NRF_LOG_DEBUG("Status reg before: 0x%x", byte);
+    readAccelReg(FIFO_SRC_REGADDR, &byte);
+    if (byte & FIFO_SRC_EMPTY)
+    {
+        NRF_LOG_DEBUG("no FIFO samples");
+        return;
+    }
+    uint32_t numSamples = FIFO_SRC_NUMUNREAD(byte);
+    NRF_LOG_INFO("FIFO has %d samples", numSamples);
+
+    /* Datasheet says that when using FIFO, start by reading X_OUT_L (0x28), and read 6 bytes.
+     * After reading 6 bytes, the address pointer will wrap to 0x28 again. So,
+     * just read 6*numSamples bytes to read all the samples at once */
+    uint8_t rawDataBuf[numSamples * 6];
+    // Read all
+    ret_code_t ret = i2c_readBytes(m_i2cAddr, OUT_X_L_REGADDR | AUTO_INCREMENT_MASK, rawDataBuf, 6 * numSamples);
+    if (NRF_SUCCESS != ret)
+    {
+        NRF_LOG_INFO("readSamples I2C error 0x%x", ret);
+        return;
+    }
+    // If here, we have read samples
+//    NRF_LOG_HEXDUMP_INFO(rawDataBuf, sizeof(rawDataBuf));
+    // Now convert samples to int16 readings. X, Y, Z so 3 axes per sample.
+    int16_t convertedSamples[numSamples * 3];
+    convertSamples(rawDataBuf, convertedSamples, numSamples);
+    // TODO parse and store data.
+    int16_t avgX, avgY, avgZ;
+    findMinMaxAverage(convertedSamples, numSamples, &avgX, &avgY, &avgZ);
+    // TODO find roll angle.
+
+//     Should be no more samples now
+//    readAccelReg(STATUS_REGADDR, &byte);
+//    NRF_LOG_DEBUG("Status reg after: 0x%x", byte);
+//    readAccelReg(FIFO_SRC_REGADDR, &byte);
+//    if (byte & FIFO_SRC_EMPTY)
+//    {
+//        NRF_LOG_DEBUG("no FIFO samples after reading %d samples", numSamples);
+//    }
+//    else
+//    {
+//        NRF_LOG_DEBUG("FIFO has %d samples after reading %d", FIFO_SRC_NUMUNREAD(byte), numSamples);
+//    }
 }
 
 static void poll(void)
 {
-    if (!m_initted && uptimeCounter_elapsedSince(m_lastPoll_ms) > 1200)
+    if (uptimeCounter_elapsedSince(m_lastPoll_ms) > m_desiredPollItvl_ms)
     { // Wait a while between re-inits
-        accelInit();
-        m_lastPoll_ms = uptimeCounter_getUptimeMs();
-    }
-    if (m_initted && uptimeCounter_elapsedSince(m_lastPoll_ms) > POLLITVL_MS)
-    {
-        uint8_t byte;
-        readAccelReg(STATUS_REGADDR, &byte);
-        if (byte)
+        if (!m_initted)
         {
-            NRF_LOG_DEBUG("Status reg 0x%x", byte);
-            readAccelReg(FIFO_SRC_REGADDR, &byte);
-            if (byte & FIFO_SRC_EMPTY)
+            if (NRF_SUCCESS != accelInit())
             {
-                NRF_LOG_DEBUG("no FIFO bytes");
+                m_desiredPollItvl_ms = 1200; // retry every 1200ms
+
             }
             else
             {
-                uint32_t numSamples = FIFO_SRC_NUMUNREAD(byte);
-                NRF_LOG_INFO("FIFO has %d samples", numSamples);
-                readSamples(numSamples);
-                readAccelReg(FIFO_SRC_REGADDR, &byte);
-                if (byte & FIFO_SRC_EMPTY)
-                {
-                    NRF_LOG_DEBUG("no FIFO bytes after reading %d samples", numSamples);
-                }
-                else
-                {
-                    NRF_LOG_INFO("FIFO has %d samples after reading %d", FIFO_SRC_NUMUNREAD(byte));
-                }
+                // Initted, init should set poll interval. Don't reset poll inter
             }
-
-            // TODO polling stuff: read values, decide where we are at, etc
-            m_lastPoll_ms = uptimeCounter_getUptimeMs();
         }
+        else
+        { // If initted, do poll stuff
+            readSamples();
+        }
+        m_lastPoll_ms = uptimeCounter_getUptimeMs();
     }
 }
 
@@ -527,9 +670,10 @@ void lis2dh_init(void)
 {
     m_initted = false;
     m_lastPoll_ms = uptimeCounter_getUptimeMs();
+    m_desiredPollItvl_ms = 100;
     i2c_init(); // Make sure bus is enabled.
 
-    // Init params, set it up the way we want, if we can.
-    accelInit();
+// Init params, set it up the way we want, if we can.
+//    accelInit();
     pollers_registerPoller(poll);
 }
