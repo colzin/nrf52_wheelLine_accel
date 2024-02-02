@@ -14,9 +14,9 @@ extern "C" {
 
 #define DEVICE_NAME      "WLR"  /**< Name of device. Will be included in the advertising data. */
 
-#define VERSION_MAJOR    0 // 1 byte
-#define VERSION_MINOR    0 // 1 byte
-#define VERSION_SUBMINOR 0 // 1 byte
+#define VERSION_MAJOR    1 // 1 byte
+#define VERSION_MINOR    2 // 1 byte
+#define VERSION_SUBMINOR 3 // 1 byte
 
 #ifdef __cplusplus
 }

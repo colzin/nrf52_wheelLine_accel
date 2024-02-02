@@ -9,6 +9,8 @@
 
 #include "i2c.h"
 
+#include "version.h" // for startup print
+
 #define NRF_LOG_MODULE_NAME _4digit7seg
 #include "nrf_log.h"
 NRF_LOG_MODULE_REGISTER();
@@ -47,7 +49,7 @@ NRF_LOG_MODULE_REGISTER();
 // Dimming setting, 0xE0, b3:0 are brightness, Write only.
 #define HT16K33_CMD_BRIGHTNESS 0xE0
 
-#define SEVENSEG_DIGITS 5 ///< # Digits in 7-seg displays, plus NUL end
+#define SEVENSEG_DIGITS 5 ///< # Digits in 7-seg displays: 4 chars, don't count colon in middle
 
 static const uint8_t sevensegfonttable[] =
         {
@@ -150,7 +152,7 @@ static const uint8_t sevensegfonttable[] =
           0b00000000, // del
         };
 
-#define POLL_ITVL_MS 1000 // non-zero to poll
+#define POLL_ITVL_MS 1500 // non-zero to poll
 #if POLL_ITVL_MS
 #include "pollers.h"
 #include "uptimeCounter.h"
@@ -159,8 +161,6 @@ static const uint8_t sevensegfonttable[] =
 /*************************************************************************************
  *  Variables
  ************************************************************************************/
-
-static uint8_t m_position;
 
 #if POLL_ITVL_MS
 static uint32_t m_lastPoll_ms;
@@ -205,121 +205,51 @@ void _4digit7seg_setDisplayState(dispState_t desired)
 
 void _4digit7seg_setBrightness(uint8_t zeroTo15)
 {
-    uint8_t buffer = HT16K33_CMD_BRIGHTNESS | (zeroTo15 & 0x0F);
+    uint8_t buffer = (uint8_t)(HT16K33_CMD_BRIGHTNESS | (zeroTo15 & 0x0F));
     i2c_writeBytes(HT16K33_DEVADDR, &buffer, 1);
 }
 
 static uint16_t m_displaybuffer[8]; ///< Raw display data
 
-void _4digit7seg_writeDisplay(void)
+static void writeDisplay(void)
 {
     uint8_t buffer[17]; // Send 1 address and 16 bytes of data.
     buffer[0] = HT16K33_ADDR_DDAP; // start at address 0, write them all
     for (uint8_t i = 0; i < 8; i++)
     { // Read in data from our m_displayBuffer
-        buffer[1 + 2 * i] = m_displaybuffer[i] & 0xFF;
-        buffer[2 + 2 * i] = m_displaybuffer[i] >> 8;
+        buffer[1 + 2 * i] = (uint8_t)(m_displaybuffer[i] & 0xFF);
+        buffer[2 + 2 * i] = (uint8_t)(m_displaybuffer[i] >> 8);
     }
     i2c_writeBytes(HT16K33_DEVADDR, buffer, 17);
 }
 
 /******************************* 7 SEGMENT OBJECT */
 
-void _4digit7seg_printU32(uint32_t n, int base)
+static void writeDigitRaw(uint8_t d, uint8_t bitmask)
 {
-    if (base == 0)
-        _4digit7seg_writeChar(n);
-    else
-        _4digit7seg_printNumber(n, base);
-}
-
-void _4digit7seg_println(void)
-{
-    m_position = 0;
-}
-
-void _4digit7seg_printlnStr(const char* c)
-{
-    _4digit7seg_writeStr(c, strlen(c));
-    _4digit7seg_println();
-}
-
-void _4digit7seg_printlnChar(char c)
-{
-    _4digit7seg_writeChar(c);
-    _4digit7seg_println();
-}
-
-void _4digit7seg_printlnU32(uint32_t b, int base)
-{
-    _4digit7seg_print(b, base);
-    _4digit7seg_println();
-}
-
-uint32_t _4digit7seg_writeChar(char c)
-{
-    uint8_t r = 0;
-    if (c == '\n')
+    if (d >= SEVENSEG_DIGITS)
     {
-        m_position = 0;
-        return;
-    }
-    if (c == '\r')
-    {
-        m_position = 0;
-        return;
-    }
-    if ((c >= ' ') && (c <= 127))
-    {
-        _4digit7seg_writeDigitAscii(m_position, c, false);
-        r = 1;
-    }
-    m_position++;
-    if (m_position == 2)
-    { // skip the colon slot
-        m_position++;
-    }
-    return r;
-}
-
-uint32_t _4digit7seg_writeStr(const char* buffer, uint32_t size)
-{
-    uint32_t n = 0;
-    while (n < size)
-    {
-        _4digit7seg_writeChar(buffer[n]);
-        n++;
-    }
-    // Clear unwritten positions
-    for (uint8_t i = m_position; i < 5; i++)
-    {
-        _4digit7seg_writeDigitRaw(i, 0x00);
-    }
-    return n;
-}
-
-void _4digit7seg_writeDigitRaw(uint8_t d, uint8_t bitmask)
-{
-    if (d > 4)
-    {
+        NRF_LOG_WARNING("no room for digit at %d", d);
         return;
     }
     m_displaybuffer[d] = bitmask;
 }
 
-void _4digit7seg_drawColon(bool state)
+static void writeDigitAscii(uint8_t pos, uint8_t c, bool dot)
 {
-    if (state)
-    {
-        m_displaybuffer[2] = 0x2;
+    if (pos >= SEVENSEG_DIGITS)
+    { // We don't do colon, just the 4 digits
+        NRF_LOG_WARNING("no room for char %c at %d", c, pos);
+        return;
     }
-    else
+    if ((c >= ' ') && (c <= 127))
     {
-        m_displaybuffer[2] = 0;
+        NRF_LOG_WARNING("Writing ASCII char %c to pos %d, %s", c, pos, dot ? "with dot" : "");
+        writeDigitRaw(pos, (uint8_t)((sevensegfonttable[c - 32]) | (dot << 7)));
     }
 }
 
-void _4digit7seg_writeColon(void)
+static void writeColon(void)
 {
     uint8_t buffer[3];
     buffer[0] = HT16K33_ADDR_DDAP + 0x04; // Start at this address
@@ -328,139 +258,107 @@ void _4digit7seg_writeColon(void)
     i2c_writeBytes(HT16K33_DEVADDR, buffer, 3);
 }
 
-void _4digit7seg_writeDigitNum(uint8_t d, uint8_t num, bool dot)
+static void drawColon(bool state)
 {
-    if (d > 4 || num > 15)
-        return;
-
-    if (num >= 10)
-    { // Hex characters
-        switch (num)
-        {
-            case 10:
-                _4digit7seg_writeDigitAscii(d, 'a', dot);
-            break;
-            case 11:
-                _4digit7seg_writeDigitAscii(d, 'B', dot);
-            break;
-            case 12:
-                _4digit7seg_writeDigitAscii(d, 'C', dot);
-            break;
-            case 13:
-                _4digit7seg_writeDigitAscii(d, 'd', dot);
-            break;
-            case 14:
-                _4digit7seg_writeDigitAscii(d, 'E', dot);
-            break;
-            case 15:
-                _4digit7seg_writeDigitAscii(d, 'F', dot);
-            break;
-        }
-    }
-
-    else
-        _4digit7seg_writeDigitAscii(d, num + 48, dot); // use ASCII offset
-}
-
-void _4digit7seg_writeDigitAscii(uint8_t d, uint8_t c, bool dot)
-{
-    if (d > 4)
+    if (state)
     {
-        return;
-    }
-//    uint8_t font = pgm_read_byte(sevensegfonttable + c - 32);
-    _4digit7seg_writeDigitRaw(d, (sevensegfonttable[c - 32]) | (dot << 7));
-}
-
-void _4digit7seg_print(long n, int base)
-{
-    _4digit7seg_printNumber(n, base);
-}
-
-void _4digit7seg_printNumber(long n, uint8_t base)
-{
-    _4digit7seg_printFloat(n, 0, base);
-}
-
-void _4digit7seg_printFloat(double n, uint8_t fracDigits, uint8_t base)
-{
-    uint8_t numericDigits = 4; // available digits on display
-    bool isNegative = false;   // true if the number is negative
-
-    // is the number negative?
-    if (n < 0)
-    {
-        isNegative = true; // need to draw sign later
-        --numericDigits;   // the sign will take up one digit
-        n *= -1;           // pretend the number is positive
-    }
-
-    // calculate the factor required to shift all fractional digits
-    // into the integer part of the number
-    double toIntFactor = 1.0;
-    for (int i = 0; i < fracDigits; ++i)
-        toIntFactor *= base;
-
-    // create integer containing digits to display by applying
-    // shifting factor and rounding adjustment
-    uint32_t displayNumber = n * toIntFactor + 0.5;
-
-    // calculate upper bound on displayNumber given
-    // available digits on display
-    uint32_t tooBig = 1;
-    for (int i = 0; i < numericDigits; ++i)
-        tooBig *= base;
-
-    // if displayNumber is too large, try fewer fractional digits
-    while (displayNumber >= tooBig)
-    {
-        --fracDigits;
-        toIntFactor /= base;
-        displayNumber = n * toIntFactor + 0.5;
-    }
-
-    // did toIntFactor shift the decimal off the display?
-    if (toIntFactor < 1)
-    {
-        _4digit7seg_printError();
+        m_displaybuffer[2] |= 0x2;
+        NRF_LOG_DEBUG("Set colon ON");
     }
     else
     {
-        // otherwise, display the number
-        int8_t displayPos = 4;
+        m_displaybuffer[2] &= (~0x02);
+        NRF_LOG_DEBUG("Set colon OFF");
+    }
+}
 
-        for (uint8_t i = 0; displayNumber || i <= fracDigits; ++i)
-        {
-            bool displayDecimal = (fracDigits != 0 && i == fracDigits);
-            _4digit7seg_writeDigitNum(displayPos--, displayNumber % base, displayDecimal);
-            if (displayPos == 2)
-            {
-                _4digit7seg_writeDigitRaw(displayPos--, 0x00);
+static void clearBuffer(void)
+{
+    for (uint8_t i = 0; i < 8; i++)
+    {
+        m_displaybuffer[i] = 0;
+    }
+}
+
+void _4digit7seg_writeStr(const char* buffer, uint8_t size)
+{
+    clearBuffer();
+    // Increment through the full digits
+    uint8_t bufIdx = 0, screenIdx = 0;
+    while (screenIdx <= SEVENSEG_DIGITS)
+    {
+        if (2 == screenIdx)
+        { // Digit[2] can only be a colon
+            if (':' == buffer[bufIdx])
+            { // Index 2 could be colon, or normal digit after the colon
+                drawColon(true);
+                bufIdx++;
             }
-            displayNumber /= base;
+            // Always increment the screen index, so next char will be a full char
+            screenIdx++;
         }
-
-        // display negative sign if negative
-        if (isNegative)
-        {
-            _4digit7seg_writeDigitRaw(displayPos--, 0x40);
+        else if ('.' == buffer[bufIdx + 1])
+        { // If there is a dot following, use the dot, and increment bufIndex twice
+            writeDigitAscii(screenIdx, buffer[bufIdx], true);
+            bufIdx += 2; // skip the dot next time, it's in the last char printed
+            screenIdx++;
         }
-
-        // clear remaining display positions
-        while (displayPos >= 0)
+        else
         {
-            _4digit7seg_writeDigitRaw(displayPos--, 0x00);
+            if (':' == buffer[bufIdx])
+            { // Skip over colon
+                if (bufIdx != 2)
+                {
+                    NRF_LOG_ERROR("Can't print : except in middle");
+                }
+                bufIdx++; // skip this char, don't increment the screenIndex
+            }
+            else
+            {
+                writeDigitAscii(screenIdx, buffer[bufIdx], false);
+                bufIdx++;
+                screenIdx++;
+            }
         }
     }
+
+    // Send to the display
+    writeDisplay();
 }
 
-void _4digit7seg_printError(void)
-{
-    for (uint8_t i = 0; i < SEVENSEG_DIGITS; ++i)
-    {
-        _4digit7seg_writeDigitRaw(i, (i == 2 ? 0x00 : 0x40));
-    }
-}
+//void _4digit7seg_writeDigitNum(uint8_t d, uint8_t num, bool dot)
+//{
+//    if (d > 4 || num > 15)
+//        return;
+//
+//    if (num >= 10)
+//    { // Hex characters
+//        switch (num)
+//        {
+//            case 10:
+//                _4digit7seg_writeDigitAscii(d, 'a', dot);
+//            break;
+//            case 11:
+//                _4digit7seg_writeDigitAscii(d, 'B', dot);
+//            break;
+//            case 12:
+//                _4digit7seg_writeDigitAscii(d, 'C', dot);
+//            break;
+//            case 13:
+//                _4digit7seg_writeDigitAscii(d, 'd', dot);
+//            break;
+//            case 14:
+//                _4digit7seg_writeDigitAscii(d, 'E', dot);
+//            break;
+//            case 15:
+//                _4digit7seg_writeDigitAscii(d, 'F', dot);
+//            break;
+//        }
+//    }
+//
+//    else
+//        _4digit7seg_writeDigitAscii(d, num + 48, dot); // use ASCII offset
+//}
 
 #if POLL_ITVL_MS
 static uint32_t m_printerState;
@@ -468,30 +366,29 @@ static void poll(void)
 {
     if (uptimeCounter_elapsedSince(m_lastPoll_ms) > POLL_ITVL_MS)
     {
-        _4digit7seg_setBrightness((m_lastPoll_ms / 1000) % 15);
-        NRF_LOG_DEBUG("Set brightness to %d", (m_lastPoll_ms / 1000) % 15);
+////        _4digit7seg_setBrightness((uint8_t)((m_lastPoll_ms / 1000) % 15));
+//        NRF_LOG_DEBUG("Set brightness to %d", (m_lastPoll_ms / 1000) % 15);
 
 //        _4digit7seg_drawColon(true);
 //        _4digit7seg_writeColon();
         switch (m_printerState)
         {
             case 1:
-                _4digit7seg_writeStr("\nrt 1", 5);
+                _4digit7seg_writeStr("rt12", 5);
             break;
             case 2:
-                _4digit7seg_writeStr("\nRT 2", 5);
+                _4digit7seg_writeStr("RT 3", 5);
             break;
             case 3:
-                _4digit7seg_writeStr("\nlt 1", 5);
+                _4digit7seg_writeStr("lt: 4", 5);
             break;
             case 4:
-                _4digit7seg_writeStr("\nLT 2", 5);
+                _4digit7seg_writeStr("LT:56", 5);
             break;
             default:
                 m_printerState = 0;
             break;
         }
-        _4digit7seg_writeDisplay();
         m_printerState++;
 
 //        _4digit7seg_writeDigitAscii(1,'a',false);
@@ -505,10 +402,9 @@ static void poll(void)
 
 void _4digit7seg_init(void)
 {
-    m_position = 0;
     i2c_init(); // Make sure bus is enabled.
 
-    // turn on oscillator
+// turn on oscillator
     uint8_t byte = HT16K33_CMD_SYS_SETUP_OSC_ON;
     i2c_writeBytes(HT16K33_DEVADDR, &byte, 1);
 
@@ -535,19 +431,16 @@ void _4digit7seg_init(void)
     }
     NRF_LOG_DEBUG("Read KADP at 0x%x", rxByte);
 
-    // internal RAM powers up with garbage/random values.
-    // ensure internal RAM is cleared before turning on display
-    // this ensures that no garbage pixels show up on the display
-    // when it is turned on.
-    for (uint8_t i = 0; i < 8; i++)
-    {
-        m_displaybuffer[i] = 0;
-    }
-    _4digit7seg_writeDisplay();
+// internal RAM powers up with garbage/random values.
+// ensure internal RAM is cleared before turning on display
+// this ensures that no garbage pixels show up on the display
+// when it is turned on.
+    clearBuffer();
+    writeDisplay();
 
     _4digit7seg_setDisplayState(dispState_onSolid);
 
-    _4digit7seg_setBrightness(0); // 0 is still on
+    _4digit7seg_setBrightness(4); // 0 is still on
 
 #if POLL_ITVL_MS
     m_lastPoll_ms = uptimeCounter_getUptimeMs();

@@ -21,6 +21,8 @@
 #include <stdint.h>
 #include "uptimeCounter.h"
 
+#include "version.h"
+
 #define NRF_LOG_MODULE_NAME main
 #include "nrf_log.h"
 NRF_LOG_MODULE_REGISTER();
@@ -30,6 +32,9 @@ NRF_LOG_MODULE_REGISTER();
 /*************************************************************************************
  *  Definitions
  ************************************************************************************/
+#if NRF_SDH_BLE_ENABLED
+#define RUN_BLE 1
+#endif // #if NRF_SDH_BLE_ENABLED
 
 /*************************************************************************************
  *  Variables
@@ -46,7 +51,7 @@ NRF_LOG_MODULE_REGISTER();
 static void initializeInputs(void)
 { // Inputs to our system
 
-    // Init any input pins, ADC, etc so we have those inputs set up and polled early.
+  // Init any input pins, ADC, etc so we have those inputs set up and polled early.
 //    lis2dh_init();
 }
 
@@ -75,11 +80,15 @@ int main(void)
     // Run initialization functions as needed, they may register pollers now
     initializeInputs();
     initializeOutputs();
+    // Put version into a string on the screen
+    char strBuf[8]; // Could have dots
+    int strLen = snprintf(strBuf, sizeof(strBuf), "v%d.%d.%d", VERSION_MAJOR, VERSION_MINOR, VERSION_SUBMINOR);
+    _4digit7seg_writeStr(strBuf, (uint8_t)strLen);
     // TODO start BLE for dropping to DFU, softDevice calls
-#if NRF_SDH_ENABLED
+#if NRF_SDH_ENABLED && RUN_BLE
     bleStuff_init();
     bleStuff_printBLEVersion();
-#endif // #if NRF_SDH_ENABLED
+#endif // #if NRF_SDH_ENABLED && RUN_BLE
 
     uint32_t lastPoll_ms = uptimeCounter_getUptimeMs();
     uint32_t ms_now;
@@ -92,9 +101,9 @@ int main(void)
             pollers_runAll();
         }
         // Go to low-power sleep between polls
-#if NRF_SDH_ENABLED
+#if NRF_SDH_ENABLED && RUN_BLE
         sd_app_evt_wait();
-#endif // #if NRF_SDH_ENABLED
+#endif // #if NRF_SDH_ENABLED && RUN_BLE
 
     }
 }
