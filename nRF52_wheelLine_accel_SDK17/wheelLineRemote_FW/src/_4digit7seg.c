@@ -19,8 +19,11 @@ NRF_LOG_MODULE_REGISTER();
 
 #define HT16K33_DEVADDR 0x70
 
-// Display data address pointer, bits 3:0 are address bits. R/W
+/* Display data address pointer, bits 3:0 are address bits. R/W
+ * So, addresses 0x00 to 0x0F are data addresses, to write bytes into
+ */
 #define HT16K33_ADDR_DDAP 0x00
+
 // System Setup, write only. b0 of system setup enables oscillator
 #define HT16K33_CMD_SYS_SETUP_OSC_OFF   0x20
 #define HT16K33_CMD_SYS_SETUP_OSC_ON    0x21
@@ -45,41 +48,6 @@ NRF_LOG_MODULE_REGISTER();
 #define HT16K33_CMD_BRIGHTNESS 0xE0
 
 #define SEVENSEG_DIGITS 5 ///< # Digits in 7-seg displays, plus NUL end
-
-/*
- Segment names for 14-segment alphanumeric displays.
- See https://learn.adafruit.com/14-segment-alpha-numeric-led-featherwing/usage
-
- -------A-------
- |\     |     /|
- | \    J    / |
- |   H  |  K   |
- F    \ | /    B
- |     \|/     |
- |--G1--|--G2--|
- |     /|\     |
- E    / | \    C
- |   L  |   N  |
- | /    M    \ |
- |/     |     \|
- -------D-------  DP
- */
-
-#define ALPHANUM_SEG_A 0b0000000000000001  ///< Alphanumeric segment A
-#define ALPHANUM_SEG_B 0b0000000000000010  ///< Alphanumeric segment B
-#define ALPHANUM_SEG_C 0b0000000000000100  ///< Alphanumeric segment C
-#define ALPHANUM_SEG_D 0b0000000000001000  ///< Alphanumeric segment D
-#define ALPHANUM_SEG_E 0b0000000000010000  ///< Alphanumeric segment E
-#define ALPHANUM_SEG_F 0b0000000000100000  ///< Alphanumeric segment F
-#define ALPHANUM_SEG_G1 0b0000000001000000 ///< Alphanumeric segment G1
-#define ALPHANUM_SEG_G2 0b0000000010000000 ///< Alphanumeric segment G2
-#define ALPHANUM_SEG_H 0b0000000100000000  ///< Alphanumeric segment H
-#define ALPHANUM_SEG_J 0b0000001000000000  ///< Alphanumeric segment J
-#define ALPHANUM_SEG_K 0b0000010000000000  ///< Alphanumeric segment K
-#define ALPHANUM_SEG_L 0b0000100000000000  ///< Alphanumeric segment L
-#define ALPHANUM_SEG_M 0b0001000000000000  ///< Alphanumeric segment M
-#define ALPHANUM_SEG_N 0b0010000000000000  ///< Alphanumeric segment N
-#define ALPHANUM_SEG_DP 0b0100000000000000 ///< Alphanumeric segment DP
 
 static const uint8_t sevensegfonttable[] =
         {
@@ -290,69 +258,73 @@ void _4digit7seg_printlnU32(uint32_t b, int base)
 
 uint32_t _4digit7seg_writeChar(char c)
 {
-
     uint8_t r = 0;
-
     if (c == '\n')
+    {
         m_position = 0;
+        return;
+    }
     if (c == '\r')
+    {
         m_position = 0;
-
+        return;
+    }
     if ((c >= ' ') && (c <= 127))
     {
-        writeDigitAscii(m_position, c);
+        _4digit7seg_writeDigitAscii(m_position, c, false);
         r = 1;
     }
-
     m_position++;
     if (m_position == 2)
+    { // skip the colon slot
         m_position++;
-
+    }
     return r;
 }
 
 uint32_t _4digit7seg_writeStr(const char* buffer, uint32_t size)
 {
     uint32_t n = 0;
-
     while (n < size)
     {
         _4digit7seg_writeChar(buffer[n]);
         n++;
     }
-
     // Clear unwritten positions
     for (uint8_t i = m_position; i < 5; i++)
     {
-        writeDigitRaw(i, 0x00);
+        _4digit7seg_writeDigitRaw(i, 0x00);
     }
-
     return n;
 }
 
 void _4digit7seg_writeDigitRaw(uint8_t d, uint8_t bitmask)
 {
     if (d > 4)
+    {
         return;
+    }
     m_displaybuffer[d] = bitmask;
 }
 
 void _4digit7seg_drawColon(bool state)
 {
     if (state)
+    {
         m_displaybuffer[2] = 0x2;
+    }
     else
+    {
         m_displaybuffer[2] = 0;
+    }
 }
 
 void _4digit7seg_writeColon(void)
 {
     uint8_t buffer[3];
-
-    buffer[0] = 0x04; // start at address $02
-    buffer[1] = m_displaybuffer[2] & 0xFF;
-    buffer[2] = m_displaybuffer[2] >> 8;
-
+    buffer[0] = HT16K33_ADDR_DDAP + 0x04; // Start at this address
+    buffer[1] = (uint8_t)(m_displaybuffer[2] & 0xFF);
+    buffer[2] = (uint8_t)(m_displaybuffer[2] >> 8);
     i2c_writeBytes(HT16K33_DEVADDR, buffer, 3);
 }
 
@@ -366,28 +338,28 @@ void _4digit7seg_writeDigitNum(uint8_t d, uint8_t num, bool dot)
         switch (num)
         {
             case 10:
-                writeDigitAscii(d, 'a', dot);
+                _4digit7seg_writeDigitAscii(d, 'a', dot);
             break;
             case 11:
-                writeDigitAscii(d, 'B', dot);
+                _4digit7seg_writeDigitAscii(d, 'B', dot);
             break;
             case 12:
-                writeDigitAscii(d, 'C', dot);
+                _4digit7seg_writeDigitAscii(d, 'C', dot);
             break;
             case 13:
-                writeDigitAscii(d, 'd', dot);
+                _4digit7seg_writeDigitAscii(d, 'd', dot);
             break;
             case 14:
-                writeDigitAscii(d, 'E', dot);
+                _4digit7seg_writeDigitAscii(d, 'E', dot);
             break;
             case 15:
-                writeDigitAscii(d, 'F', dot);
+                _4digit7seg_writeDigitAscii(d, 'F', dot);
             break;
         }
     }
 
     else
-        writeDigitAscii(d, num + 48, dot); // use ASCII offset
+        _4digit7seg_writeDigitAscii(d, num + 48, dot); // use ASCII offset
 }
 
 void _4digit7seg_writeDigitAscii(uint8_t d, uint8_t c, bool dot)
@@ -397,18 +369,17 @@ void _4digit7seg_writeDigitAscii(uint8_t d, uint8_t c, bool dot)
         return;
     }
 //    uint8_t font = pgm_read_byte(sevensegfonttable + c - 32);
-//    writeDigitRaw(d, font | (dot << 7));
-    NRF_LOG_ERROR("not implemented");
+    _4digit7seg_writeDigitRaw(d, (sevensegfonttable[c - 32]) | (dot << 7));
 }
 
 void _4digit7seg_print(long n, int base)
 {
-    printNumber(n, base);
+    _4digit7seg_printNumber(n, base);
 }
 
 void _4digit7seg_printNumber(long n, uint8_t base)
 {
-    printFloat(n, 0, base);
+    _4digit7seg_printFloat(n, 0, base);
 }
 
 void _4digit7seg_printFloat(double n, uint8_t fracDigits, uint8_t base)
@@ -451,7 +422,7 @@ void _4digit7seg_printFloat(double n, uint8_t fracDigits, uint8_t base)
     // did toIntFactor shift the decimal off the display?
     if (toIntFactor < 1)
     {
-        printError();
+        _4digit7seg_printError();
     }
     else
     {
@@ -461,19 +432,25 @@ void _4digit7seg_printFloat(double n, uint8_t fracDigits, uint8_t base)
         for (uint8_t i = 0; displayNumber || i <= fracDigits; ++i)
         {
             bool displayDecimal = (fracDigits != 0 && i == fracDigits);
-            writeDigitNum(displayPos--, displayNumber % base, displayDecimal);
+            _4digit7seg_writeDigitNum(displayPos--, displayNumber % base, displayDecimal);
             if (displayPos == 2)
-                writeDigitRaw(displayPos--, 0x00);
+            {
+                _4digit7seg_writeDigitRaw(displayPos--, 0x00);
+            }
             displayNumber /= base;
         }
 
         // display negative sign if negative
         if (isNegative)
-            writeDigitRaw(displayPos--, 0x40);
+        {
+            _4digit7seg_writeDigitRaw(displayPos--, 0x40);
+        }
 
         // clear remaining display positions
         while (displayPos >= 0)
-            writeDigitRaw(displayPos--, 0x00);
+        {
+            _4digit7seg_writeDigitRaw(displayPos--, 0x00);
+        }
     }
 }
 
@@ -481,17 +458,46 @@ void _4digit7seg_printError(void)
 {
     for (uint8_t i = 0; i < SEVENSEG_DIGITS; ++i)
     {
-        writeDigitRaw(i, (i == 2 ? 0x00 : 0x40));
+        _4digit7seg_writeDigitRaw(i, (i == 2 ? 0x00 : 0x40));
     }
 }
 
 #if POLL_ITVL_MS
+static uint32_t m_printerState;
 static void poll(void)
 {
     if (uptimeCounter_elapsedSince(m_lastPoll_ms) > POLL_ITVL_MS)
     {
         _4digit7seg_setBrightness((m_lastPoll_ms / 1000) % 15);
         NRF_LOG_DEBUG("Set brightness to %d", (m_lastPoll_ms / 1000) % 15);
+
+//        _4digit7seg_drawColon(true);
+//        _4digit7seg_writeColon();
+        switch (m_printerState)
+        {
+            case 1:
+                _4digit7seg_writeStr("\nrt 1", 5);
+            break;
+            case 2:
+                _4digit7seg_writeStr("\nRT 2", 5);
+            break;
+            case 3:
+                _4digit7seg_writeStr("\nlt 1", 5);
+            break;
+            case 4:
+                _4digit7seg_writeStr("\nLT 2", 5);
+            break;
+            default:
+                m_printerState = 0;
+            break;
+        }
+        _4digit7seg_writeDisplay();
+        m_printerState++;
+
+//        _4digit7seg_writeDigitAscii(1,'a',false);
+//        _4digit7seg_writeDigitAscii(1,'a',false);
+//        _4digit7seg_writeDigitAscii(1,'a',false);
+
         m_lastPoll_ms = uptimeCounter_getUptimeMs();
     }
 }
@@ -535,7 +541,7 @@ void _4digit7seg_init(void)
     // when it is turned on.
     for (uint8_t i = 0; i < 8; i++)
     {
-        m_displaybuffer[i] = i;
+        m_displaybuffer[i] = 0;
     }
     _4digit7seg_writeDisplay();
 

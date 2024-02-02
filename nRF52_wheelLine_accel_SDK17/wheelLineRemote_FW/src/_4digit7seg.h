@@ -12,6 +12,7 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef enum
@@ -35,13 +36,18 @@ void _4digit7seg_printlnStr(const char* c);
 void _4digit7seg_printlnChar(char c);
 void _4digit7seg_printlnU32(uint32_t b, int base);
 
-uint32_t _4digit7seg_writeChar(char c);
+        void _4digit7seg_writeDigitRaw(uint8_t d, uint8_t bitmask);
+        void _4digit7seg_writeColon(void);
 
-uint32_t _4digit7seg_writeStr(const char* buffer, uint32_t size);
+        uint32_t _4digit7seg_writeChar(char c);
 
-void _4digit7seg_init(void);
+        uint32_t _4digit7seg_writeStr(const char* buffer, uint32_t size);
+
+        void _4digit7seg_writeDigitAscii(uint8_t d, uint8_t c, bool dot);
+
+        void _4digit7seg_init(void);
 
 #ifdef __cplusplus
-}
+    }
 #endif
 #endif /* SRC__4DIGIT7SEG_H_ */

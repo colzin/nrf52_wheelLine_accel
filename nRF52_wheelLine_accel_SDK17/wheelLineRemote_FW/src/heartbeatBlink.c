@@ -48,9 +48,7 @@ static void heartBlinkPoll(void)
             NRF_P0->OUTSET = (1UL << HEARTBEAT_LED_GPIO_NUM);
         }
         m_lastToggle_ms = uptimeCounter_getUptimeMs();
-//        NRF_LOG_WARNING("Toggling heartbeat LED at %d ms", m_lastToggle_ms);
-        _4digit7seg_drawColon((NRF_P0->OUT >> HEARTBEAT_LED_GPIO_NUM) & 1);
-        _4digit7seg_writeColon();
+//        NRF_LOG_DEBUG("Toggled heartbeat LED at %d ms", m_lastToggle_ms);
     }
 
 }

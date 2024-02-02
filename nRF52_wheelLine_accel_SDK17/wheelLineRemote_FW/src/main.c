@@ -47,7 +47,7 @@ static void initializeInputs(void)
 { // Inputs to our system
 
     // Init any input pins, ADC, etc so we have those inputs set up and polled early.
-    lis2dh_init();
+//    lis2dh_init();
 }
 
 static void initializeOutputs(void)
