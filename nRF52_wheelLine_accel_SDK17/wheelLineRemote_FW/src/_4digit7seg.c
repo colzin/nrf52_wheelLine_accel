@@ -238,13 +238,13 @@ static void writeDigitRaw(uint8_t d, uint8_t bitmask)
 static void writeDigitAscii(uint8_t pos, uint8_t c, bool dot)
 {
     if (pos >= SEVENSEG_DIGITS)
-    { // We don't do colon, just the 4 digits
-        NRF_LOG_WARNING("no room for char %c at %d", c, pos);
+    { // We don't do colon, just the 4 digits. This is probably the \0 on a string, ignore anyway
+//        NRF_LOG_WARNING("no room for char %c at %d", c, pos);
         return;
     }
     if ((c >= ' ') && (c <= 127))
     {
-        NRF_LOG_WARNING("Writing ASCII char %c to pos %d, %s", c, pos, dot ? "with dot" : "");
+//        NRF_LOG_DEBUG("Writing ASCII char %c to pos %d, %s", c, pos, dot ? "with dot" : "");
         writeDigitRaw(pos, (uint8_t)((sevensegfonttable[c - 32]) | (dot << 7)));
     }
 }
@@ -263,12 +263,12 @@ static void drawColon(bool state)
     if (state)
     {
         m_displaybuffer[2] |= 0x2;
-        NRF_LOG_DEBUG("Set colon ON");
+//        NRF_LOG_DEBUG("Set colon ON");
     }
     else
     {
         m_displaybuffer[2] &= (~0x02);
-        NRF_LOG_DEBUG("Set colon OFF");
+//        NRF_LOG_DEBUG("Set colon OFF");
     }
 }
 
@@ -326,40 +326,6 @@ void _4digit7seg_writeStr(const char* buffer, uint8_t size)
     writeDisplay();
 }
 
-//void _4digit7seg_writeDigitNum(uint8_t d, uint8_t num, bool dot)
-//{
-//    if (d > 4 || num > 15)
-//        return;
-//
-//    if (num >= 10)
-//    { // Hex characters
-//        switch (num)
-//        {
-//            case 10:
-//                _4digit7seg_writeDigitAscii(d, 'a', dot);
-//            break;
-//            case 11:
-//                _4digit7seg_writeDigitAscii(d, 'B', dot);
-//            break;
-//            case 12:
-//                _4digit7seg_writeDigitAscii(d, 'C', dot);
-//            break;
-//            case 13:
-//                _4digit7seg_writeDigitAscii(d, 'd', dot);
-//            break;
-//            case 14:
-//                _4digit7seg_writeDigitAscii(d, 'E', dot);
-//            break;
-//            case 15:
-//                _4digit7seg_writeDigitAscii(d, 'F', dot);
-//            break;
-//        }
-//    }
-//
-//    else
-//        _4digit7seg_writeDigitAscii(d, num + 48, dot); // use ASCII offset
-//}
-
 #if POLL_ITVL_MS
 static uint32_t m_printerState;
 static void poll(void)
@@ -408,28 +374,28 @@ void _4digit7seg_init(void)
     uint8_t byte = HT16K33_CMD_SYS_SETUP_OSC_ON;
     i2c_writeBytes(HT16K33_DEVADDR, &byte, 1);
 
-    uint8_t rxByte = 0x12;
-    ret_code_t ret = i2c_readByte(HT16K33_DEVADDR, HT16K33_ADDR_DDAP, &rxByte);
-    if (NRF_SUCCESS != ret)
-    {
-        NRF_LOG_ERROR("_4digit7seg_init failed to read I2C");
-        return;
-    }
-    NRF_LOG_DEBUG("Read DDAP at 0x%x", rxByte);
-    ret = i2c_readByte(HT16K33_DEVADDR, HT16K33_ADDR_INTFLAGS, &rxByte);
-    if (NRF_SUCCESS != ret)
-    {
-        NRF_LOG_ERROR("_4digit7seg_init failed to read I2C");
-        return;
-    }
-    NRF_LOG_DEBUG("Read intflags at 0x%x", rxByte);
-    ret = i2c_readByte(HT16K33_DEVADDR, HT16K33_ADDR_KADP, &rxByte);
-    if (NRF_SUCCESS != ret)
-    {
-        NRF_LOG_ERROR("_4digit7seg_init failed to read I2C");
-        return;
-    }
-    NRF_LOG_DEBUG("Read KADP at 0x%x", rxByte);
+//    uint8_t rxByte = 0x12;
+//    ret_code_t ret = i2c_readByte(HT16K33_DEVADDR, HT16K33_ADDR_DDAP, &rxByte);
+//    if (NRF_SUCCESS != ret)
+//    {
+//        NRF_LOG_ERROR("_4digit7seg_init failed to read I2C");
+//        return;
+//    }
+//    NRF_LOG_DEBUG("Read DDAP at 0x%x", rxByte);
+//    ret = i2c_readByte(HT16K33_DEVADDR, HT16K33_ADDR_INTFLAGS, &rxByte);
+//    if (NRF_SUCCESS != ret)
+//    {
+//        NRF_LOG_ERROR("_4digit7seg_init failed to read I2C");
+//        return;
+//    }
+//    NRF_LOG_DEBUG("Read intflags at 0x%x", rxByte);
+//    ret = i2c_readByte(HT16K33_DEVADDR, HT16K33_ADDR_KADP, &rxByte);
+//    if (NRF_SUCCESS != ret)
+//    {
+//        NRF_LOG_ERROR("_4digit7seg_init failed to read I2C");
+//        return;
+//    }
+//    NRF_LOG_DEBUG("Read KADP at 0x%x", rxByte);
 
 // internal RAM powers up with garbage/random values.
 // ensure internal RAM is cleared before turning on display
@@ -440,7 +406,7 @@ void _4digit7seg_init(void)
 
     _4digit7seg_setDisplayState(dispState_onSolid);
 
-    _4digit7seg_setBrightness(4); // 0 is still on
+    _4digit7seg_setBrightness(0); // 0 is still on
 
 #if POLL_ITVL_MS
     m_lastPoll_ms = uptimeCounter_getUptimeMs();

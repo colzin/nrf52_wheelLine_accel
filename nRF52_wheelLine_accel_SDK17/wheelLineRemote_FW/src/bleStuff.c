@@ -397,17 +397,17 @@ static void advertising_init(void)
 void bleStuff_init(void)
 { // Copied from ble_nus main.c
     ble_stack_init();
-    NRF_LOG_INFO("ble_stack_init done");
+//    NRF_LOG_INFO("ble_stack_init done");
     gap_params_init();
-    NRF_LOG_INFO("gap_params_init done");
+//    NRF_LOG_INFO("gap_params_init done");
     gatt_init();
-    NRF_LOG_INFO("gatt_init done");
+//    NRF_LOG_INFO("gatt_init done");
     services_init();
-    NRF_LOG_INFO("services_init done");
+//    NRF_LOG_INFO("services_init done");
     advertising_init();
-    NRF_LOG_INFO("advertising_init done");
+//    NRF_LOG_INFO("advertising_init done");
     conn_params_init();
-    NRF_LOG_INFO("conn_params_init done");
+//    NRF_LOG_INFO("conn_params_init done");
 
     uint32_t err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
     if (NRF_SUCCESS != err_code)

@@ -7,20 +7,20 @@
 
 #include "sdk_config.h"
 
+#include "_4digit7seg.h"
+
 #if NRF_SDH_ENABLED
 #include "bleStuff.h"
 #endif // #if NRF_SDH_ENABLED
 
+#include "ev1527I2S.h"
 #include "heartbeatBlink.h"
-#include "_4digit7seg.h"
 #include "i2c.h"
 #include "lis2dh.h"
-
 #include "pollers.h"
 
 #include <stdint.h>
 #include "uptimeCounter.h"
-
 #include "version.h"
 
 #define NRF_LOG_MODULE_NAME main
@@ -60,6 +60,7 @@ static void initializeOutputs(void)
 // TODO Init output pin managers
     heartblink_init();
     _4digit7seg_init();
+    ev1527I2S_init();
 }
 static void log_init(void)
 {

@@ -14,10 +14,29 @@ extern "C" {
 
 #define DEVICE_NAME      "WLR"  /**< Name of device. Will be included in the advertising data. */
 
-#define VERSION_MAJOR    1 // 1 byte
-#define VERSION_MINOR    2 // 1 byte
-#define VERSION_SUBMINOR 3 // 1 byte
+#define VERSION_MAJOR    0 // 1 byte
+#define VERSION_MINOR    0 // 1 byte
+#define VERSION_SUBMINOR 1 // 1 byte
 
+// PCA10040 LEDs on 17, 18, 19, 29, active low
+#define LED_1          17
+#define LED_2          18
+#define LED_3          19
+#define LED_4          20
+
+#define HEARTBEAT_LED_GPIO_NUM LED_1
+#define RADIO_TX_GPIO LED_2
+#define ISR_DEBUG_GPIO LED_3
+
+// Buttons short to GND
+#define BUTTON_1       13
+#define BUTTON_2       14
+#define BUTTON_3       15
+#define BUTTON_4       16
+
+#define  I2S_LRCLK_PIN 0 // p0.00, any physical unused pin
+#define  I2S_SCK_PIN 1 // p0.01, any physical unused pin
+#define  I2S_SDOUT_PIN 2 // p0.02, WE DO USE THIS
 #ifdef __cplusplus
 }
 #endif
