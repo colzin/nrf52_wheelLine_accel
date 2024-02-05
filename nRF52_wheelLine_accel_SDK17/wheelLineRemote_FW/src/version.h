@@ -34,9 +34,13 @@ extern "C" {
 #define BUTTON_3       15
 #define BUTTON_4       16
 
-#define  I2S_LRCLK_PIN 0 // p0.00, any physical unused pin
-#define  I2S_SCK_PIN 1 // p0.01, any physical unused pin
-#define  I2S_SDOUT_PIN 2 // p0.02, WE DO USE THIS
+#define UNUSED_PIN0     0 // p0.00, any physical unused pin
+#define UNUSED_PIN1     1 // p0.01, any physical unused pin
+
+#define I2S_LRCLK_PIN   UNUSED_PIN0 // Need a dummy pin
+
+#define I2S_SCK_PIN     UNUSED_PIN1 // Need a dummy pin
+#define I2S_SDOUT_PIN   RADIO_TX_GPIO // p0.02, WE DO USE THIS
 #ifdef __cplusplus
 }
 #endif

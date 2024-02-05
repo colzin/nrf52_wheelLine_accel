@@ -45,16 +45,19 @@ NRF_LOG_MODULE_REGISTER();
  * Those data bits are as follows:
  * '0' is 1 high and 3 lows, and a '1' is 3 highs and 1 low.
  *
- * So 32 bits of preamble, then 20 address bits, then 4 data bits.
+ * So 32 sub-bits of preamble, then 20 address bits(4 sub-bits each), then 4 data bits (4 sub-bits each).
  * Since the preamble is set, we only need to send 20 address bits and 4 data bits.
+ *
+ * So, sub-bits are: 32 + 20*4 + 4*4 = 32+96 = 128 sub-bits per packet
  *
  * On air, it sends 335us, then stops for 11,230ms, which is 33.5x that first high pulse.
  * So, send for 335us, then stop for 34x that, then send the address bits.
  *
+ * inter-packet delay of TODO TUNE is ok for momentary relays.
+ *
  */
-
-#define SUB_BIT_WIDTH_US (334)
-#define SUB_BITS_PER_BIT 4
+#define EV1527_SUB_BIT_WIDTH_US (334)
+#define EV1527_SUB_BITS_PER_PACKET 128
 
 /* Now that we know about the pulses needed to send RF data, we need to know about I2S
  * I2S clock is ~960,000Hz, so each bit of I2S would last 1.04us.
@@ -62,15 +65,9 @@ NRF_LOG_MODULE_REGISTER();
  * 335/1.04 = 322.115 I2S bits per pulse of EV1527 data.
  *
  */
-#define I2S_BITS_PER_SUB_BIT 322
+#define I2S_BITS_PER_SUB_BIT 8 // TODO tune
 
-typedef enum
-{
-    evSend_inactive = 0,
-    evSend_sendingPreamble,
-    evSend_sendingAddressBits,
-    evSend_sendingDataBits,
-} ev1527SendState_t;
+#define I2S_DATA_BLOCK_WORDS (EV1527_SUB_BITS_PER_PACKET*I2S_BITS_PER_SUB_BIT) // tune to be the size of an EV1527 packet.
 
 /*************************************************************************************
  *  Variables
@@ -82,10 +79,12 @@ static const nrfx_i2s_t m_i2s = NRFX_I2S_INSTANCE(0);
 #endif // #if NRFX_TIMER1_ENABLED
 
 // EV1527, send 20 address and 4 data bits. Send MSBit is start of address, LSBit is D3
-static uint32_t g_address,
-        g_data;
-static volatile uint32_t g_BitIdx, g_bitSubIdx, g_nextSubBitVal, g_numRepeatsLeft;
-static volatile ev1527SendState_t g_sendState = evSend_inactive;
+
+// I2S variables
+__ALIGNED(4) static uint32_t g_i2sRxBuffers[2][I2S_DATA_BLOCK_WORDS]; // Rx can't be NULL
+__ALIGNED(4) static uint32_t g_i2sTxBuffer0[I2S_DATA_BLOCK_WORDS];
+__ALIGNED(4) static uint32_t g_i2sTxBuffer1[I2S_DATA_BLOCK_WORDS]; // DON'T USE, just for zeros
+static volatile bool g_i2sTxbuffer0Free;
 
 /*************************************************************************************
  *  Prototypes
@@ -115,126 +114,52 @@ static uint32_t calculateNextSubBit(uint32_t bitb0, uint32_t subBitIdx)
     }
 }
 
-static void handleTxTimeout(void)
-{
-    switch (g_sendState)
-    {
-        case evSend_inactive:
-            // If called when done, turn off and stop timer.
-            NRF_P0->OUTCLR = (1UL << RADIO_TX_GPIO);
-            // disarm timer, stop.
-            nrfx_timer_disable(&m_timer1);
-        break;
-        case evSend_sendingPreamble:
-            if (0 == g_bitSubIdx)
-            { // Set high for 1 sub-bit, then low for 34
-                NRF_P0->OUTSET = (1UL << RADIO_TX_GPIO);
-            }
-            else
-            {
-                NRF_P0->OUTCLR = (1UL << RADIO_TX_GPIO);
-            }
-            g_bitSubIdx++;
-            if (g_bitSubIdx >= 34)
-            { // Send 1 sub high, 34 low, then move on to address bits.
-                g_sendState = evSend_sendingAddressBits;
-                g_bitSubIdx = 0;
-                g_BitIdx = 0;
-                g_nextSubBitVal = calculateNextSubBit(g_address >> 19, 0);
-            }
-        break;
-        case evSend_sendingAddressBits:
-            // Here we are done with the preamble, start sending the address bits.
-            if (g_nextSubBitVal)
-            {
-                NRF_P0->OUTSET = (1UL << RADIO_TX_GPIO);
-            }
-            else
-            {
-                NRF_P0->OUTCLR = (1UL << RADIO_TX_GPIO);
-            }
-            // figure out what the next sub-bit will be
-            g_bitSubIdx++;
-            if (g_bitSubIdx > 3)
-            { // only 4 sub-bit states in address and data bits
-                g_BitIdx++;
-                g_bitSubIdx = 0;
-            }
-            if (g_BitIdx > 19)
-            { // We are done here, send data bits next
-                g_sendState = evSend_sendingDataBits;
-                g_bitSubIdx = 0;
-                g_BitIdx = 0;
-                // Data bits 0-3, only 4 bits
-                g_nextSubBitVal = calculateNextSubBit(g_data >> 3, 0);
-            }
-            else
-            {
-                g_nextSubBitVal = calculateNextSubBit(g_address >> (19 - g_BitIdx), g_bitSubIdx);
-            }
-        break;
-        case evSend_sendingDataBits:
-            // Here we are sending data bits
-            if (g_nextSubBitVal)
-            {
-                NRF_P0->OUTSET = (1UL << RADIO_TX_GPIO);
-            }
-            else
-            {
-                NRF_P0->OUTCLR = (1UL << RADIO_TX_GPIO);
-            }
-            // figure out what the next sub-bit will be
-            g_bitSubIdx++;
-            if (g_bitSubIdx > 3)
-            { // only 4 sub-bit states in address and data bits
-                g_BitIdx++;
-                g_bitSubIdx = 0;
-            }
-            if (g_BitIdx > 3)
-            { // We are done here, repeat or go to inactive
-                if (g_numRepeatsLeft)
-                {
-                    g_numRepeatsLeft--;
-                    g_sendState = evSend_sendingPreamble;
-                }
-                else
-                {
-                    g_sendState = evSend_inactive;
-                }
-                g_bitSubIdx = 0;
-                g_BitIdx = 0;
-                // Data bits 0-3, only 4 bits
-                g_nextSubBitVal = 0;
-            }
-            else
-            {
-                g_nextSubBitVal = calculateNextSubBit((g_data >> (3 - g_BitIdx)) & 0x01, g_bitSubIdx);
-            }
-        break;
-    }
-}
-
-static void timerISRHandler(nrf_timer_event_t event_type, void* p_context)
-{
-    NRF_P0->OUTSET = (1UL << ISR_DEBUG_GPIO); // Debug timer
-    switch (event_type)
-    {
-        case NRF_TIMER_EVENT_COMPARE0:
-            NRF_LOG_WARNING("Timer compare0")
-            ;
-            handleTxTimeout();
-        break;
-        default:
-            NRF_LOG_WARNING("Timer event %d not handled", event_type)
-            ;
-        break;
-    }
-    NRF_P0->OUTCLR = (1UL << ISR_DEBUG_GPIO);
-}
-
 static void i2sDataHandler(nrfx_i2s_buffers_t const* p_released, uint32_t status)
 {
-
+    NRF_P0->OUTSET = (1UL << ISR_DEBUG_GPIO); // Debug isr
+    NRF_LOG_INFO("ISR");
+    if (!(status & NRFX_I2S_STATUS_NEXT_BUFFERS_NEEDED))
+    { // Shouldn't happen
+        g_i2sTxbuffer0Free = true;
+        NRF_LOG_WARNING("No next needed, must have stopped");
+        NRF_P0->OUTCLR = (1UL << ISR_DEBUG_GPIO);
+        return;
+    }
+    /* First call to this handler occurs right after the transfer is started.
+     * No data has been transferred yet (at this call), so there is nothing to check.
+     * Only the buffers for the next part of the transfer should be provided.
+     */
+    if (!p_released->p_rx_buffer)
+    {
+        nrfx_i2s_buffers_t const next_buffers = {
+                                                  .p_rx_buffer = g_i2sRxBuffers[1],
+                                                  .p_tx_buffer = g_i2sTxBuffer1
+        };
+        ret_code_t ret = nrfx_i2s_next_buffers_set(&next_buffers);
+//        if (NRF_SUCCESS != ret)
+//        {
+        NRF_LOG_DEBUG("nrfx_i2s_next_buffers_set error 0x%x", ret);
+//            return;
+//        }
+    }
+    else
+    { // It has released a buffer:
+        g_i2sTxbuffer0Free = true;
+        if (g_i2sTxBuffer0 == p_released->p_tx_buffer)
+        { // If it released buffer 0, it is done with the transfer of that packet. Stop the I2S
+            nrfx_i2s_stop();
+            NRF_LOG_INFO("0 was freed, stopped");
+        }
+        else if (g_i2sTxBuffer1 == p_released->p_tx_buffer)
+        { // If it released 1, 1 is now free (probably when stop completes)
+            NRF_LOG_INFO("1 was freed");
+        }
+        else
+        {
+            NRF_LOG_ERROR("Ping-pong ptr was wrong!");
+        }
+    }
+    NRF_P0->OUTCLR = (1UL << ISR_DEBUG_GPIO);
 }
 
 static void setupRadioOutputs(void)
@@ -246,6 +171,82 @@ static void setupRadioOutputs(void)
     nrf_gpio_cfg_output(RADIO_TX_GPIO);
 }
 
+static ret_code_t startTransfer(uint32_t address, uint8_t _4DataBits)
+{
+    /* Our remote to copy sends data bits (Left first, MSBit first):
+     * 0b 0010 0000 1101 0111 0100 1110 0
+     * EV1527 address is 20 bits, data is 4 bits. Should have 24 bits total.
+     * We seem to have 25 bits...
+     * Ok, the last bit is the preamble starting over again, which is a 0 then 31 empty spaces, 11.6ms
+     * So, the 24 bits we need to send are
+     * 0b 0010 0000 1101 0111 0100 1110 = 0x 20 D74E
+     * 4 bits are data, 20 address.
+     * So set address to 0x20D74, Data to 0xE
+     */
+    if (!g_i2sTxbuffer0Free)
+    {
+        NRF_LOG_ERROR("Can't send, still in progress sending a transfer");
+        return NRF_ERROR_BUSY;
+    }
+    // If here, buffer is free. Fill with desired bits.
+
+    // Default to zeros (not transmitting)
+    memset(g_i2sTxBuffer0, 0, sizeof(g_i2sTxBuffer0));
+    uint32_t i2sBitIndex = 0;
+    g_i2sTxBuffer0[0] = 0x80000000; // 1 high, 31 lows for preamble
+    i2sBitIndex = 32;
+    // TODO remove and fix the below
+    for (uint32_t i = 1; i < I2S_DATA_BLOCK_WORDS; i++)
+    {
+        g_i2sTxBuffer0[i] = 0xFF00FF00;
+    }
+    goto starti2s;
+
+    // TODO fix the below
+    // 20 address bits, 4 sub-bits per bit so 80 bits for address, 3.5 words
+    for (uint32_t i = 0; i < 20; i++)
+    {
+        // Put in 4 sub-bits for each address bit, MSBit at b31, LSBit at b0
+        if ((address >> (i - 19)) & 0x01)
+        { // Set a 1: sub-bits are 0b1110
+          // Words on I2S are send MSBit first
+//            g_i2sTxBuffer0[1 + ((80 - (i * 4)) / 32)] |= (0b1110 << ((76 - (i * 4)) % 32));
+//            g_i2sTxBuffer0[i2sBitIndex/32] |= ?
+        }
+        else
+        { // Set a zero: 0b1000
+//            g_i2sTxBuffer0[1 + ((80 - (i * 4)) / 32)] |= (0b1000 << ((76 - (i * 4)) % 32));
+        }
+        i2sBitIndex += 4;
+    }
+    // i2sBitIndex should be at 32+80=112. Start inputting data bits
+    for (uint32_t i = 0; i < 4; i++)
+    {
+        if ((_4DataBits >> i) & 0x01)
+        { // Set a 1: sub-bits are 0b1110
+          // Words on I2S are send MSBit first
+//            g_i2sTxBuffer0[i2sBitIndex / 32] |= (0b1110 << ((76 - (i * 4)) % 32));
+        }
+        else
+        { // Set a zero: 0b1000
+//            g_i2sTxBuffer0[i2sBitIndex / 32] |= (0b1000 << ((76 - (i * 4)) % 32));
+        }
+    }
+
+    starti2s:
+    {
+        nrfx_i2s_buffers_t const initial_buffers = {
+                                                     .p_tx_buffer = g_i2sTxBuffer0,
+                                                     .p_rx_buffer = g_i2sRxBuffers[0],
+        };
+        ret_code_t ret = nrfx_i2s_start(&initial_buffers, I2S_DATA_BLOCK_WORDS, 0);
+        // Start the TX!
+        NRF_LOG_INFO("Started I2S send,err 0x%x", ret);
+        return ret;
+    }
+    return NRF_SUCCESS;
+}
+
 #define TX_ITVL_MS 1500
 static uint32_t g_lastTx_ms;
 
@@ -253,36 +254,17 @@ static void poll(void)
 {
     if (uptimeCounter_elapsedSince(g_lastTx_ms) >= TX_ITVL_MS)
     {
-        if (g_numRepeatsLeft)
+        if (!g_i2sTxbuffer0Free)
         {
-            NRF_LOG_WARNING("txPoll, but Still %d repeats left, don't send now", g_numRepeatsLeft);
-            g_lastTx_ms = uptimeCounter_getUptimeMs() - (TX_ITVL_MS - 50);
+            NRF_LOG_WARNING("txPoll, sending a transmission, wait");
+            g_lastTx_ms = uptimeCounter_getUptimeMs();
             return;
         }
-        /* Our remote to copy sends data bits (Left first, MSBit first):
-         * 0b 0010 0000 1101 0111 0100 1110 0
-         * EV1527 address is 20 bits, data is 4 bits. Should have 24 bits total.
-         * We seem to have 25 bits...
-         * Ok, the last bit is the preamble starting over again, which is a 0 then 31 empty spaces, 11.6ms
-         * So, the 24 bits we need to send are
-         * 0b 0010 0000 1101 0111 0100 1110 = 0x 20 D74E
-         * 4 bits are data, 20 address.
-         * So set address to 0x20D74, Data to 0xE
-         */
-        g_address = 0x020D74;
-        g_data = (uptimeCounter_getUptimeMs() / 1000) % 16;
-        g_sendState = evSend_sendingPreamble;
-        g_bitSubIdx = 0;
-        g_BitIdx = 0;
-        g_numRepeatsLeft = 10;
-        // Timer start
-//        hw_timer_alarm_us(TIMER_ITVL_US, true);
-
-        uint32_t ticks = nrfx_timer_us_to_ticks(&m_timer1, TIMER_ITVL_US);
-        nrfx_timer_compare(&m_timer1, NRF_TIMER_CC_CHANNEL0, ticks, true);
-        nrfx_timer_enable(&m_timer1);
-
-        NRF_LOG_INFO("Set nrfx_timer time %dus, %d cycles", TIMER_ITVL_US, g_numRepeatsLeft + 1);
+        ret_code_t ret = startTransfer(0x020D74, (uptimeCounter_getUptimeMs() / 1000) % 16);
+        if (NRF_SUCCESS != ret)
+        {
+            NRF_LOG_ERROR("Tx start error 0x%x", ret);
+        }
         g_lastTx_ms = uptimeCounter_getUptimeMs();
     }
 }
@@ -298,14 +280,29 @@ void ev1527I2S_init(void)
     config.format = NRF_I2S_FORMAT_I2S; // Use I2S mode to have it send every byte of the 32-bit words.
     config.irq_priority = APP_IRQ_PRIORITY_LOW; // Need to service this in time
     config.lrck_pin = I2S_LRCLK_PIN; // Must use a real pin, even though we don't care about this in reality.
+    config.mck_pin = NRFX_I2S_PIN_NOT_USED; // Optional
+    config.mck_setup = NRF_I2S_MCK_32MDIV11; // ?? TODO tune
+    config.mode = NRF_I2S_MODE_MASTER; // We control clock
+    config.ratio = NRF_I2S_RATIO_96X; // 96x at MCK 32M/11 for SCK of 969,696.96Hz, TODO change to 343us
+    config.sample_width = NRF_I2S_SWIDTH_16BIT; // TODO tune
+    config.sck_pin = I2S_SCK_PIN;
+    config.sdin_pin = NRFX_I2S_PIN_NOT_USED;
+    config.sdout_pin = I2S_SDOUT_PIN; // Start with this unused if we need it to idle high
 
-    ret_code_t
-    ret = nrfx_i2s_init(&config, i2sDataHandler);
+    ret_code_t ret = nrfx_i2s_init(&config, i2sDataHandler);
     if (NRF_SUCCESS != ret)
     {
-        NRF_LOG_ERROR("timerInit Error 0x%x", ret);
+        NRF_LOG_ERROR("nrfx_i2s_init Error 0x%x", ret);
         return;
     }
+    // Immediately after I2S init, de-mux the pins we don't actually use, to avoid spurious radiation.
+    // NOTE: we can NOT re-use the pins for other functions. TODO, test this hypothesis
+//    nrf_gpio_cfg_default(I2S_SCK_PIN);
+//    nrf_gpio_cfg_default(I2S_LRCLK_PIN);
+    // fill second buffer with all zeros, so it sends nothing
+    memset(g_i2sTxBuffer1, 0, sizeof(g_i2sTxBuffer1));
+    g_i2sTxbuffer0Free = true;
+    NRF_LOG_INFO("Init success");
     pollers_registerPoller(poll);
 
 }
