@@ -695,7 +695,7 @@
 // <e> NRFX_I2S_ENABLED - nrfx_i2s - I2S peripheral driver
 //==========================================================
 #ifndef NRFX_I2S_ENABLED
-#define NRFX_I2S_ENABLED 1
+#define NRFX_I2S_ENABLED 0
 #endif
 // <e> NRFX_I2S_CONFIG_LOG_ENABLED - Enables logging in the module.
 //==========================================================
@@ -1224,24 +1224,24 @@
 // <e> NRFX_SPI_ENABLED - nrfx_spi - SPI peripheral driver
 //==========================================================
 #ifndef NRFX_SPI_ENABLED
-#define NRFX_SPI_ENABLED 0
+#define NRFX_SPI_ENABLED 1
 #endif
 // <q> NRFX_SPI0_ENABLED  - Enable SPI0 instance
 
 #ifndef NRFX_SPI0_ENABLED
-#define NRFX_SPI0_ENABLED 0 // Shared with TWI0
+#define NRFX_SPI0_ENABLED 1 // Shared with TWI0, SPIM0. Use for E-ink screen.
 #endif
 
 // <q> NRFX_SPI1_ENABLED  - Enable SPI1 instance
 
 #ifndef NRFX_SPI1_ENABLED
-#define NRFX_SPI1_ENABLED 0 // Shared with TWI1
+#define NRFX_SPI1_ENABLED 0 // Shared with TWI1, SPIM1. TWI1 used, DO NOT USE
 #endif
 
 // <q> NRFX_SPI2_ENABLED  - Enable SPI2 instance
 
 #ifndef NRFX_SPI2_ENABLED
-#define NRFX_SPI2_ENABLED 0 // Shared with SPIM2
+#define NRFX_SPI2_ENABLED 1 // Shared with SPIM2, no TWI2 though. Use for Radio TX
 #endif
 
 // <o> NRFX_SPI_MISO_PULL_CFG  - MISO pin pull configuration.
@@ -1539,13 +1539,13 @@
 // <q> NRFX_TWI0_ENABLED  - Enable TWI0 instance
 
 #ifndef NRFX_TWI0_ENABLED
-#define NRFX_TWI0_ENABLED 0
+#define NRFX_TWI0_ENABLED 0 // Shared with SPI0. DO NOT USE
 #endif
 
 // <q> NRFX_TWI1_ENABLED  - Enable TWI1 instance
 
 #ifndef NRFX_TWI1_ENABLED
-#define NRFX_TWI1_ENABLED 1 // This instance for peripherals
+#define NRFX_TWI1_ENABLED 1 // Shared with SPI1. Use this instance for peripherals
 #endif
 
 // See i2c.c for config

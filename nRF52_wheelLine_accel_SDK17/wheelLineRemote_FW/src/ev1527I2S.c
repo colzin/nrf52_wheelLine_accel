@@ -8,6 +8,8 @@
 #include "sdk_config.h"
 #include "ev1527I2S.h"
 
+#if NRFX_I2S_ENABLED
+
 #include "nrfx_i2s.h"
 #include "nrf_gpio.h"
 #include "pollers.h"
@@ -67,16 +69,13 @@ NRF_LOG_MODULE_REGISTER();
  */
 #define I2S_BITS_PER_SUB_BIT 8 // TODO tune
 
-#define I2S_DATA_BLOCK_WORDS (EV1527_SUB_BITS_PER_PACKET*I2S_BITS_PER_SUB_BIT) // tune to be the size of an EV1527 packet.
+#define I2S_DATA_BLOCK_WORDS ((EV1527_SUB_BITS_PER_PACKET*I2S_BITS_PER_SUB_BIT)/32) // tune to be the size of an EV1527 packet.
 
 /*************************************************************************************
  *  Variables
  ************************************************************************************/
 
-#if NRFX_TIMER1_ENABLED
 static const nrfx_i2s_t m_i2s = NRFX_I2S_INSTANCE(0);
-
-#endif // #if NRFX_TIMER1_ENABLED
 
 // EV1527, send 20 address and 4 data bits. Send MSBit is start of address, LSBit is D3
 
@@ -94,30 +93,11 @@ static volatile bool g_i2sTxbuffer0Free;
  *  Functions
  ************************************************************************************/
 
-static uint32_t calculateNextSubBit(uint32_t bitb0, uint32_t subBitIdx)
-{ // Mask off any upper bits, only care about b0
-    if (bitb0 & 0x01)
-    { // If a 1, send 3 highs then 1 low.
-        if (3 == subBitIdx)
-        {
-            return 0;
-        }
-        return 1;
-    }
-    else
-    { // If a 0, send 1 high then 3 lows
-        if (0 == subBitIdx)
-        {
-            return 1;
-        }
-        return 0;
-    }
-}
 
 static void i2sDataHandler(nrfx_i2s_buffers_t const* p_released, uint32_t status)
 {
     NRF_P0->OUTSET = (1UL << ISR_DEBUG_GPIO); // Debug isr
-    NRF_LOG_INFO("ISR");
+//    NRF_LOG_INFO("ISR");
     if (!(status & NRFX_I2S_STATUS_NEXT_BUFFERS_NEEDED))
     { // Shouldn't happen
         g_i2sTxbuffer0Free = true;
@@ -167,8 +147,8 @@ static void setupRadioOutputs(void)
     // LEDs are active low, but radio is active high
     NRF_P0->OUTSET = (1UL << ISR_DEBUG_GPIO);
     nrf_gpio_cfg_output(ISR_DEBUG_GPIO);
-    NRF_P0->OUTCLR = (1UL << RADIO_TX_GPIO);
-    nrf_gpio_cfg_output(RADIO_TX_GPIO);
+//    NRF_P0->OUTCLR = (1UL << RADIO_TX_GPIO);
+//    nrf_gpio_cfg_output(RADIO_TX_GPIO);
 }
 
 static ret_code_t startTransfer(uint32_t address, uint8_t _4DataBits)
@@ -306,3 +286,6 @@ void ev1527I2S_init(void)
     pollers_registerPoller(poll);
 
 }
+#else // #if NRFX_I2S_ENABLED
+
+#endif // #if NRFX_I2S_ENABLED

@@ -76,6 +76,7 @@
 									<listOptionValue builtIn="false" value="NRF_SD_BLE_API_VERSION=7"/>
 									<listOptionValue builtIn="false" value="S112"/>
 									<listOptionValue builtIn="false" value="SOFTDEVICE_PRESENT"/>
+									<listOptionValue builtIn="false" value="CONFIG_NFCT_PINS_AS_GPIOS"/>
 								</option>
 								<option id="ilg.gnuarmeclipse.managedbuild.cross.option.assembler.other.1523492183" name="Other assembler flags" superClass="ilg.gnuarmeclipse.managedbuild.cross.option.assembler.other" value="-mcpu=cortex-m4 -mthumb -mabi=aapcs -mfloat-abi=hard -mfpu=fpv4-sp-d16" valueType="string"/>
 								<inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.assembler.input.460612345" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.assembler.input"/>
@@ -139,6 +140,7 @@
 									<listOptionValue builtIn="false" value="NRF_SD_BLE_API_VERSION=7"/>
 									<listOptionValue builtIn="false" value="S112"/>
 									<listOptionValue builtIn="false" value="SOFTDEVICE_PRESENT"/>
+									<listOptionValue builtIn="false" value="CONFIG_NFCT_PINS_AS_GPIOS"/>
 								</option>
 								<inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input.200903989" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.c.compiler.input"/>
 							</tool>
@@ -153,6 +155,7 @@
 									<listOptionValue builtIn="false" value="NRF_SD_BLE_API_VERSION=7"/>
 									<listOptionValue builtIn="false" value="S112"/>
 									<listOptionValue builtIn="false" value="SOFTDEVICE_PRESENT"/>
+									<listOptionValue builtIn="false" value="CONFIG_NFCT_PINS_AS_GPIOS"/>
 								</option>
 								<inputType id="ilg.gnuarmeclipse.managedbuild.cross.tool.cpp.compiler.input.1588497072" superClass="ilg.gnuarmeclipse.managedbuild.cross.tool.cpp.compiler.input"/>
 							</tool>

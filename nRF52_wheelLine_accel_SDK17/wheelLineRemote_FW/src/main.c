@@ -13,7 +13,7 @@
 #include "bleStuff.h"
 #endif // #if NRF_SDH_ENABLED
 
-#include "ev1527I2S.h"
+#include "ev1527SPI.h"
 #include "heartbeatBlink.h"
 #include "i2c.h"
 #include "lis2dh.h"
@@ -60,7 +60,7 @@ static void initializeOutputs(void)
 // TODO Init output pin managers
     heartblink_init();
     _4digit7seg_init();
-    ev1527I2S_init();
+    ev1527SPI_init();
 }
 static void log_init(void)
 {

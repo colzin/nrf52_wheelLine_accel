@@ -25,8 +25,10 @@ extern "C" {
 #define LED_4          20
 
 #define HEARTBEAT_LED_GPIO_NUM LED_1
-#define RADIO_TX_GPIO LED_2
+
 #define ISR_DEBUG_GPIO LED_3
+
+#define RADIO_TX_GPIO 11
 
 // Buttons short to GND
 #define BUTTON_1       13
@@ -34,13 +36,21 @@ extern "C" {
 #define BUTTON_3       15
 #define BUTTON_4       16
 
-#define UNUSED_PIN0     0 // p0.00, any physical unused pin
-#define UNUSED_PIN1     1 // p0.01, any physical unused pin
+#define XTAL_PIN_1 0 // p0.00 used for 32.768kHz XTAL on PCA10040
+#define XTAL_PIN_2 1 // p0.01 used for 32.768kHz XTAL on PCA10040
 
+#define UNUSED_PIN0     2 // p0.02 routed to a pin on PCA10040, otherwise unused
+#define UNUSED_PIN1     3 // p0.03 routed to a pin on PCA10040, otherwise unused
+#define UNUSED_PIN2     4 // p0.05 routed to a pin on PCA10040, otherwise unused
+
+// Use the pins for either EV1527 format
 #define I2S_LRCLK_PIN   UNUSED_PIN0 // Need a dummy pin
-
 #define I2S_SCK_PIN     UNUSED_PIN1 // Need a dummy pin
 #define I2S_SDOUT_PIN   RADIO_TX_GPIO // p0.02, WE DO USE THIS
+
+#define SPI_MISO_PIN    UNUSED_PIN0
+#define SPI_SCK_PIN     UNUSED_PIN1
+#define SPI_MOSI_PIN    RADIO_TX_GPIO
 #ifdef __cplusplus
 }
 #endif
