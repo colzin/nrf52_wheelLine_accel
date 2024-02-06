@@ -7,7 +7,7 @@
 
 #include "lis2dh.h"
 
-#include "i2c.h"
+#include "i2c1.h"
 #include "nrf_delay.h"
 #include "pollers.h"
 
@@ -364,12 +364,12 @@ static ret_code_t writeAccelReg(uint8_t regAddr, uint8_t byte)
     uint8_t toWrite[2];
     toWrite[0] = regAddr;
     toWrite[1] = byte;
-    return i2c_writeBytes(m_i2cAddr, toWrite, 2);
+    return i2c1_writeBytes(m_i2cAddr, toWrite, 2);
 }
 
 static ret_code_t readAccelReg(uint8_t regAddr, uint8_t* pRxByte)
 {
-    return i2c_readByte(m_i2cAddr, regAddr, pRxByte);
+    return i2c1_readByte(m_i2cAddr, regAddr, pRxByte);
 }
 
 static ret_code_t setOpMode(opMode_t desiredMode)
@@ -612,7 +612,7 @@ static void readSamples(void)
      * just read 6*numSamples bytes to read all the samples at once */
     uint8_t rawDataBuf[numSamples * 6];
     // Read all
-    ret_code_t ret = i2c_readBytes(m_i2cAddr, OUT_X_L_REGADDR | AUTO_INCREMENT_MASK, rawDataBuf, 6 * numSamples);
+    ret_code_t ret = i2c1_readBytes(m_i2cAddr, OUT_X_L_REGADDR | AUTO_INCREMENT_MASK, rawDataBuf, 6 * numSamples);
     if (NRF_SUCCESS != ret)
     {
         NRF_LOG_INFO("readSamples I2C error 0x%x", ret);
@@ -671,7 +671,7 @@ void lis2dh_init(void)
     m_initted = false;
     m_lastPoll_ms = uptimeCounter_getUptimeMs();
     m_desiredPollItvl_ms = 100;
-    i2c_init(); // Make sure bus is enabled.
+    i2c1_init(); // Make sure bus is enabled.
 
 // Init params, set it up the way we want, if we can.
 //    accelInit();

@@ -7,7 +7,7 @@
 
 #include "_4digit7seg.h"
 
-#include "i2c.h"
+#include "i2c1.h"
 
 #include "version.h" // for startup print
 
@@ -200,13 +200,13 @@ void _4digit7seg_setDisplayState(dispState_t desired)
             return;
         break;
     }
-    i2c_writeBytes(HT16K33_DEVADDR, &buffer, 1);
+    i2c1_writeBytes(HT16K33_DEVADDR, &buffer, 1);
 }
 
 void _4digit7seg_setBrightness(uint8_t zeroTo15)
 {
     uint8_t buffer = (uint8_t)(HT16K33_CMD_BRIGHTNESS | (zeroTo15 & 0x0F));
-    i2c_writeBytes(HT16K33_DEVADDR, &buffer, 1);
+    i2c1_writeBytes(HT16K33_DEVADDR, &buffer, 1);
 }
 
 static uint16_t m_displaybuffer[8]; ///< Raw display data
@@ -220,7 +220,7 @@ static void writeDisplay(void)
         buffer[1 + 2 * i] = (uint8_t)(m_displaybuffer[i] & 0xFF);
         buffer[2 + 2 * i] = (uint8_t)(m_displaybuffer[i] >> 8);
     }
-    i2c_writeBytes(HT16K33_DEVADDR, buffer, 17);
+    i2c1_writeBytes(HT16K33_DEVADDR, buffer, 17);
 }
 
 /******************************* 7 SEGMENT OBJECT */
@@ -255,7 +255,7 @@ static void writeColon(void)
     buffer[0] = HT16K33_ADDR_DDAP + 0x04; // Start at this address
     buffer[1] = (uint8_t)(m_displaybuffer[2] & 0xFF);
     buffer[2] = (uint8_t)(m_displaybuffer[2] >> 8);
-    i2c_writeBytes(HT16K33_DEVADDR, buffer, 3);
+    i2c1_writeBytes(HT16K33_DEVADDR, buffer, 3);
 }
 
 static void drawColon(bool state)
@@ -267,7 +267,7 @@ static void drawColon(bool state)
     }
     else
     {
-        m_displaybuffer[2] &= (~0x02);
+        m_displaybuffer[2] &= (uint16_t)(~0x02);
 //        NRF_LOG_DEBUG("Set colon OFF");
     }
 }
@@ -368,28 +368,28 @@ static void poll(void)
 
 void _4digit7seg_init(void)
 {
-    i2c_init(); // Make sure bus is enabled.
+    i2c1_init(); // Make sure bus is enabled.
 
 // turn on oscillator
     uint8_t byte = HT16K33_CMD_SYS_SETUP_OSC_ON;
-    i2c_writeBytes(HT16K33_DEVADDR, &byte, 1);
+    i2c1_writeBytes(HT16K33_DEVADDR, &byte, 1);
 
 //    uint8_t rxByte = 0x12;
-//    ret_code_t ret = i2c_readByte(HT16K33_DEVADDR, HT16K33_ADDR_DDAP, &rxByte);
+//    ret_code_t ret = i2c1_readByte(HT16K33_DEVADDR, HT16K33_ADDR_DDAP, &rxByte);
 //    if (NRF_SUCCESS != ret)
 //    {
 //        NRF_LOG_ERROR("_4digit7seg_init failed to read I2C");
 //        return;
 //    }
 //    NRF_LOG_DEBUG("Read DDAP at 0x%x", rxByte);
-//    ret = i2c_readByte(HT16K33_DEVADDR, HT16K33_ADDR_INTFLAGS, &rxByte);
+//    ret = i2c1_readByte(HT16K33_DEVADDR, HT16K33_ADDR_INTFLAGS, &rxByte);
 //    if (NRF_SUCCESS != ret)
 //    {
 //        NRF_LOG_ERROR("_4digit7seg_init failed to read I2C");
 //        return;
 //    }
 //    NRF_LOG_DEBUG("Read intflags at 0x%x", rxByte);
-//    ret = i2c_readByte(HT16K33_DEVADDR, HT16K33_ADDR_KADP, &rxByte);
+//    ret = i2c1_readByte(HT16K33_DEVADDR, HT16K33_ADDR_KADP, &rxByte);
 //    if (NRF_SUCCESS != ret)
 //    {
 //        NRF_LOG_ERROR("_4digit7seg_init failed to read I2C");

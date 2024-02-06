@@ -7,11 +7,13 @@
 
 #include "sdk_config.h"
 
-#include "i2c.h"
+#include "i2c1.h"
 
 #include "pollers.h"
 #include "nrfx_twi.h"
 #include "uptimeCounter.h"
+
+#include "version.h"
 
 #define NRF_LOG_MODULE_NAME I2C
 #include "nrf_log.h"
@@ -32,8 +34,8 @@ NRF_LOG_MODULE_REGISTER();
 static const nrfx_twi_t m_twi1 = NRFX_TWI_INSTANCE(1);
 static const nrfx_twi_config_t m_twi1Cfg =
         {
-          .scl = 28,
-          .sda = 29,
+          .scl = I2C1_SCL_PIN,
+          .sda = I2C1_SDA_PIN,
           .frequency = NRF_TWI_FREQ_400K,
           .hold_bus_uninit = false,
           .interrupt_priority = APP_IRQ_PRIORITY_LOWEST,
@@ -84,7 +86,7 @@ static void poll(void)
 }
 #endif // #if SCANNER_POLL_ITVL_MS
 
-ret_code_t i2c_readByte(uint8_t devAddr, uint8_t regAddr, uint8_t* pData)
+ret_code_t i2c1_readByte(uint8_t devAddr, uint8_t regAddr, uint8_t* pData)
 { // Write the address, then do a stop, then read as many bytes as caller wants
     ret_code_t ret = nrfx_twi_tx(&m_twi1, devAddr, &regAddr, 1, true);
 
@@ -92,66 +94,66 @@ ret_code_t i2c_readByte(uint8_t devAddr, uint8_t regAddr, uint8_t* pData)
     {
         if (NRFX_ERROR_DRV_TWI_ERR_ANACK == ret)
         {
-            NRF_LOG_WARNING("i2c_readByte Address 0x%x NACKed", devAddr);
+            NRF_LOG_WARNING("i2c1_readByte Address 0x%x NACKed", devAddr);
         }
         else
         {
-            NRF_LOG_ERROR("i2c_readByte Error 0x%x writing devAddr 0x%x", ret, devAddr);
+            NRF_LOG_ERROR("i2c1_readByte Error 0x%x writing devAddr 0x%x", ret, devAddr);
         }
         return ret;
     }
     ret = nrfx_twi_rx(&m_twi1, devAddr, pData, 1);
     if (NRF_SUCCESS != ret)
     {
-        NRF_LOG_ERROR("i2c_readByte Error 0x%x reading byte", ret);
+        NRF_LOG_ERROR("i2c1_readByte Error 0x%x reading byte", ret);
         return ret;
     }
     return ret;
 }
 
-ret_code_t i2c_readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t* pData, uint32_t len)
+ret_code_t i2c1_readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t* pData, uint32_t len)
 { // Write the address, then do a stop, then read as many bytes as caller wants
     ret_code_t ret = nrfx_twi_tx(&m_twi1, devAddr, &regAddr, 1, true);
     if (NRF_SUCCESS != ret)
     {
         if (NRFX_ERROR_DRV_TWI_ERR_ANACK == ret)
         {
-            NRF_LOG_WARNING("i2c_readBytes Address 0x%x NACKed", devAddr);
+            NRF_LOG_WARNING("i2c1_readBytes Address 0x%x NACKed", devAddr);
         }
         else
         {
-            NRF_LOG_ERROR("i2c_readByte Error 0x%x writing devAddr 0x%x", ret, devAddr);
+            NRF_LOG_ERROR("i2c1_readByte Error 0x%x writing devAddr 0x%x", ret, devAddr);
         }
         return ret;
     }
     ret = nrfx_twi_rx(&m_twi1, devAddr, pData, len);
     if (NRF_SUCCESS != ret)
     {
-        NRF_LOG_ERROR("i2c_readBytes Error 0x%x reading bytes", ret);
+        NRF_LOG_ERROR("i2c1_readBytes Error 0x%x reading bytes", ret);
         return ret;
     }
     return ret;
 }
 
-ret_code_t i2c_writeBytes(uint8_t devAddr, uint8_t* pByte, uint32_t len)
+ret_code_t i2c1_writeBytes(uint8_t devAddr, uint8_t* pByte, uint32_t len)
 { // Write the address, then data bytes
     ret_code_t ret = nrfx_twi_tx(&m_twi1, devAddr, pByte, len, false);
     if (NRF_SUCCESS != ret)
     {
         if (NRFX_ERROR_DRV_TWI_ERR_ANACK == ret)
         {
-            NRF_LOG_WARNING("i2c_writeBytes Address 0x%x NACKed", devAddr);
+            NRF_LOG_WARNING("i2c1_writeBytes Address 0x%x NACKed", devAddr);
         }
         else
         {
-            NRF_LOG_ERROR("i2c_writeBytes Error 0x%x writing %d bytes to devAddr 0x%x", ret, len, devAddr);
+            NRF_LOG_ERROR("i2c1_writeBytes Error 0x%x writing %d bytes to devAddr 0x%x", ret, len, devAddr);
         }
         return ret;
     }
     return ret;
 }
 
-ret_code_t i2c_init(void)
+ret_code_t i2c1_init(void)
 {
     if (m_twi1Enabled)
     {

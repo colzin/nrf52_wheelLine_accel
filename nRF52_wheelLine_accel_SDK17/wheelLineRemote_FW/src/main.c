@@ -16,7 +16,6 @@
 #include "cc1101.h"
 #include "ev1527SPI.h"
 #include "heartbeatBlink.h"
-#include "i2c.h"
 #include "lis2dh.h"
 #include "pollers.h"
 

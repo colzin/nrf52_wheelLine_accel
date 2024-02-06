@@ -34,7 +34,7 @@ static const nrfx_spi_t m_spi = NRFX_SPI_INSTANCE(0); // TODO keep in sync with 
 #error "Please define or enable an SPI instance"
 #endif // #if NRFX_SPI2_ENABLED
 
-#define HIGH_DRIVE_PINS 1 // 1 to help with long wires
+#define HIGH_DRIVE_PINS 0 // 1 to help with long wires
 
 #define NONBLOCKING 0 // 1 to use non-blocking
 
@@ -95,6 +95,38 @@ static void setupCSOutputs(void)
 #endif // #if HIGH_DRIVE_PINS
 }
 
+static void assertCS(spi0Slave_t slave)
+{ // TODO keep up with any new slaves added
+    switch (slave)
+    {
+        case spi0_cc1101:
+            NRF_P0->OUTCLR = (1UL << SPI0_CC1101_CS_GPIO);
+        break;
+        case spi0_einkScreen:
+            NRF_P0->OUTCLR = (1UL << SPI0_EINK_CS_GPIO);
+        break;
+        case spi0_einkSRAM:
+            NRF_P0->OUTCLR = (1UL << SPI0_EINK_SRAM_CS_GPIO);
+        break;
+        case spi0_sdcard:
+            NRF_P0->OUTCLR = (1UL << SPI0_SDCARD_CS_GPIO);
+        break;
+        default:
+            NRF_LOG_ERROR("SPI0 slave %d not supported!", slave)
+            ;
+        break;
+    }
+}
+
+static void deassertCS(void)
+{
+    // TODO add any other slave CS lines
+    NRF_P0->OUTSET = (1UL << SPI0_CC1101_CS_GPIO)
+            | (1UL << SPI0_EINK_CS_GPIO)
+            | (1UL << SPI0_EINK_SRAM_CS_GPIO)
+            | (1UL << SPI0_SDCARD_CS_GPIO);
+}
+
 ret_code_t spi0_write(spi0Slave_t slave, uint8_t* pData, uint32_t len, bool keepCSAsserted)
 {
     if (!m_initted)
@@ -115,19 +147,7 @@ ret_code_t spi0_write(spi0Slave_t slave, uint8_t* pData, uint32_t len, bool keep
     ret_code_t ret;
     uint32_t offset = 0;
     uint32_t bytesToSend;
-    switch (slave)
-    {
-        case spi0_cc1101:
-            NRF_P0->OUTCLR = (1UL << SPI0_CC1101_CS_GPIO);
-        break;
-        case spi0_eink:
-            NRF_P0->OUTCLR = (1UL << SPI0_EINK_CS_GPIO);
-        break;
-        default:
-            NRF_LOG_ERROR("SPI0 slave %d not supported!", slave)
-            ;
-        break;
-    }
+    assertCS(slave);
     // Note, limit per xfer is 511 bytes. To send more, use loop
     while (len)
     {
@@ -144,8 +164,8 @@ ret_code_t spi0_write(spi0Slave_t slave, uint8_t* pData, uint32_t len, bool keep
         { // Bail out, release CS line
             NRF_LOG_ERROR("SPI0 write, xfer error %d, bailing out", ret);
             if (!keepCSAsserted)
-            { // TODO add any other slave CS lines
-                NRF_P0->OUTSET = (1UL << SPI0_CC1101_CS_GPIO) | (1UL << SPI0_EINK_CS_GPIO);
+            {
+                deassertCS();
             }
 #if NONBLOCKING
             m_spiXferDone = true;
@@ -177,8 +197,8 @@ ret_code_t spi0_write(spi0Slave_t slave, uint8_t* pData, uint32_t len, bool keep
     // Now we are done, successfully
 
     if (!keepCSAsserted)
-    { // TODO add any other slave CS lines
-        NRF_P0->OUTSET = (1UL << SPI0_CC1101_CS_GPIO) | (1UL << SPI0_EINK_CS_GPIO);
+    {
+        deassertCS();
     }
 #if NONBLOCKING
     m_spiXferDone = true;
@@ -206,19 +226,7 @@ ret_code_t spi0_read(spi0Slave_t slave, uint8_t* pData, uint32_t len, bool keepC
     ret_code_t ret;
     uint32_t offset = 0;
     uint32_t bytesToRead;
-    switch (slave)
-    {
-        case spi0_cc1101:
-            NRF_P0->OUTCLR = (1UL << SPI0_CC1101_CS_GPIO);
-        break;
-        case spi0_eink:
-            NRF_P0->OUTCLR = (1UL << SPI0_EINK_CS_GPIO);
-        break;
-        default:
-            NRF_LOG_ERROR("SPI0 slave %d not supported!", slave)
-            ;
-        break;
-    }
+    assertCS(slave);
     // Note, limit per xfer is 511 bytes. To send more, use loop
     while (len)
     {
@@ -235,8 +243,8 @@ ret_code_t spi0_read(spi0Slave_t slave, uint8_t* pData, uint32_t len, bool keepC
         { // Bail out, release CS line
             NRF_LOG_ERROR("SPI0 read, xfer error %d, bailing out", ret);
             if (!keepCSAsserted)
-            { // TODO add any other slave CS lines
-                NRF_P0->OUTSET = (1UL << SPI0_CC1101_CS_GPIO) | (1UL << SPI0_EINK_CS_GPIO);
+            {
+                deassertCS();
             }
 #if NONBLOCKING
             m_spiXferDone = true;
@@ -268,8 +276,8 @@ ret_code_t spi0_read(spi0Slave_t slave, uint8_t* pData, uint32_t len, bool keepC
     // Now we are done, successfully
 
     if (!keepCSAsserted)
-    { // TODO add any other slave CS lines
-        NRF_P0->OUTSET = (1UL << SPI0_CC1101_CS_GPIO) | (1UL << SPI0_EINK_CS_GPIO);
+    {
+        deassertCS();
     }
 #if NONBLOCKING
     m_spiXferDone = true;

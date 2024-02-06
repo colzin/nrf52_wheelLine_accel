@@ -22,7 +22,9 @@ extern "C" {
 typedef enum
 {
     spi0_cc1101,
-    spi0_eink,
+    spi0_einkScreen,
+    spi0_einkSRAM,
+    spi0_sdcard,
     spi0_none,
 
 }spi0Slave_t;
@@ -30,15 +32,16 @@ typedef enum
 /*************************************************************************************
  *  Functions
  ************************************************************************************/
-
 ret_code_t spi0_write(spi0Slave_t slave,uint8_t* pData, uint32_t len, bool keepCSAsserted);
 
-        ret_code_t spi0_read(spi0Slave_t slave,uint8_t* pData, uint32_t len, bool keepCSAsserted);
+ret_code_t spi0_read(spi0Slave_t slave,uint8_t* pData, uint32_t len, bool keepCSAsserted);
 
-        void spi0_init(void);
+bool spi0_isInitted(void);
+
+void spi0_init(void);
 
 #ifdef __cplusplus
-    }
+}
 #endif
 
 #endif /* SRC_SPI0_H_ */
