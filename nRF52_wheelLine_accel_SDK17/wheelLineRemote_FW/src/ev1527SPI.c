@@ -144,7 +144,7 @@ static const nrfx_spi_t m_spi = NRFX_SPI_INSTANCE(2);
 // EV1527, send 20 address and 4 data bits. Send MSBit is start of address, LSBit is D3
 
 // SPI variables
-__ALIGNED(4) static uint8_t m_spiTxBytes[SPI_TX_BYTES];
+static uint8_t m_spiTxBytes[SPI_TX_BYTES];
 static nrfx_spi_xfer_desc_t m_xfer;
 static volatile bool m_spiXferDone;
 static uint32_t m_spiTransfesRemaining;
@@ -176,8 +176,8 @@ static void spiIsrHandler(nrfx_spi_evt_t const* p_event, void* p_context)
 static void setupRadioOutputs(void)
 {
 // LEDs are active low, but radio is active high
-    NRF_P0->OUTCLR = (1UL << RADIO_TX_GPIO);
-    nrf_gpio_cfg_output(RADIO_TX_GPIO);
+    NRF_P0->OUTCLR = (1UL << SPI2_MOSI_PIN);
+    nrf_gpio_cfg_output(SPI2_MOSI_PIN);
 }
 static uint32_t setBits(uint32_t numBits, uint8_t* pArray, uint32_t bitIndex)
 {
@@ -365,9 +365,9 @@ void ev1527SPI_init(void)
     config.irq_priority = APP_IRQ_PRIORITY_MID;
     config.miso_pin = NRFX_SPI_PIN_NOT_USED; // unused
     config.mode = NRF_SPI_MODE_1; // Mode 1 makes MOSI idle low, which is what we need for radio
-    config.mosi_pin = RADIO_TX_GPIO; // Route to radio TX pin
+    config.mosi_pin = SPI2_MOSI_PIN; // Route to radio TX pin
     config.orc = 0x00; // Send zeros, don't turn on radio if we don't know what we are doing
-    config.sck_pin = SPI_SCK_PIN; // TODO try and not use, but nrfx driver needs it
+    config.sck_pin = SPI2_SCK_PIN; // TODO try and not use, but nrfx driver needs it
     config.ss_pin = NRFX_SPI_PIN_NOT_USED;
     ret_code_t ret = nrfx_spi_init(&m_spi, &config, spiIsrHandler, NULL);
     if (NRF_SUCCESS != ret)
@@ -375,16 +375,9 @@ void ev1527SPI_init(void)
         NRF_LOG_ERROR("nrfx_spi_init Error 0x%x", ret);
         return;
     }
-// Un-mux the SCK pin to lower radiation
-    nrf_gpio_cfg_default(SPI_SCK_PIN);
-    // Put strong drive on MOSI pin
-    nrf_gpio_cfg(
-    RADIO_TX_GPIO,
-                 NRF_GPIO_PIN_DIR_OUTPUT,
-                 NRF_GPIO_PIN_INPUT_DISCONNECT,
-                 NRF_GPIO_PIN_NOPULL,
-                 NRF_GPIO_PIN_H0H1,
-                 NRF_GPIO_PIN_NOSENSE);
+    // Un-mux the SCK pin to lower radiation
+    nrf_gpio_cfg_default(SPI2_SCK_PIN);
+
     memset(m_spiTxBytes, 0, sizeof(m_spiTxBytes));
     m_spiXferDone = true;
 

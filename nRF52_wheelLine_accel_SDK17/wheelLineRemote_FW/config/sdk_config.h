@@ -80,7 +80,6 @@
 #define NRF_BLE_GATT_ENABLED 1
 #endif
 // <q> NRF_BLE_GATT_MTU_EXCHANGE_INITIATION_ENABLED  - Enable GATT MTU exchange initiation
- 
 
 #ifndef NRF_BLE_GATT_MTU_EXCHANGE_INITIATION_ENABLED
 #define NRF_BLE_GATT_MTU_EXCHANGE_INITIATION_ENABLED 1
@@ -124,7 +123,6 @@
 
 // </e>
 
-
 // </e>
 // <e> NRF_BLE_CONN_PARAMS_ENABLED - ble_conn_params - Initiating and executing a connection parameters negotiation procedure
 //==========================================================
@@ -144,7 +142,6 @@
 #ifndef NRF_BLE_CONN_PARAMS_MAX_SUPERVISION_TIMEOUT_DEVIATION
 #define NRF_BLE_CONN_PARAMS_MAX_SUPERVISION_TIMEOUT_DEVIATION 65535
 #endif
-
 
 // </e>
 
@@ -1126,13 +1123,13 @@
 // <q> NRFX_SPIM0_ENABLED  - Enable SPIM0 instance
 
 #ifndef NRFX_SPIM0_ENABLED
-#define NRFX_SPIM0_ENABLED 0   // Shared with TWI0
+#define NRFX_SPIM0_ENABLED 0 // Shared with TWI0, SPI0, SPIS0
 #endif
 
 // <q> NRFX_SPIM1_ENABLED  - Enable SPIM1 instance
 
 #ifndef NRFX_SPIM1_ENABLED
-#define NRFX_SPIM1_ENABLED 0  // Shared with TWI1
+#define NRFX_SPIM1_ENABLED 0  // Shared with TWI1, SPI1, SPIS1
 #endif
 
 // <q> NRFX_SPIM2_ENABLED  - Enable SPIM2 instance
@@ -1184,13 +1181,13 @@
 // <q> NRFX_SPIS0_ENABLED  - Enable SPIS0 instance
 
 #ifndef NRFX_SPIS0_ENABLED
-#define NRFX_SPIS0_ENABLED 0  // Shared with TWI0
+#define NRFX_SPIS0_ENABLED 0  // Shared with TWI0, SPI0, SPIM1
 #endif
 
 // <q> NRFX_SPIS1_ENABLED  - Enable SPIS1 instance
 
 #ifndef NRFX_SPIS1_ENABLED
-#define NRFX_SPIS1_ENABLED 0  // Shared with TWI1
+#define NRFX_SPIS1_ENABLED 0  // Shared with TWI1, SPI1, SPIM1
 #endif
 
 // <q> NRFX_SPIS2_ENABLED  - Enable SPIS2 instance
@@ -1251,7 +1248,7 @@
 // <3=> NRF_GPIO_PIN_PULLUP
 
 #ifndef NRFX_SPI_MISO_PULL_CFG
-#define NRFX_SPI_MISO_PULL_CFG 1
+#define NRFX_SPI_MISO_PULL_CFG 3 // pull up for CC1101 to drive low.
 #endif
 
 // <e> NRFX_SPI_CONFIG_LOG_ENABLED - Enables logging in the module.
@@ -1259,53 +1256,6 @@
 #ifndef NRFX_SPI_CONFIG_LOG_ENABLED
 #define NRFX_SPI_CONFIG_LOG_ENABLED 0
 #endif
-// <o> NRFX_SPI_CONFIG_LOG_LEVEL  - Default Severity level
-
-// <0=> Off
-// <1=> Error
-// <2=> Warning
-// <3=> Info
-// <4=> Debug
-
-#ifndef NRFX_SPI_CONFIG_LOG_LEVEL
-#define NRFX_SPI_CONFIG_LOG_LEVEL 3
-#endif
-
-// <o> NRFX_SPI_CONFIG_INFO_COLOR  - ANSI escape code prefix.
-
-// <0=> Default
-// <1=> Black
-// <2=> Red
-// <3=> Green
-// <4=> Yellow
-// <5=> Blue
-// <6=> Magenta
-// <7=> Cyan
-// <8=> White
-
-#ifndef NRFX_SPI_CONFIG_INFO_COLOR
-#define NRFX_SPI_CONFIG_INFO_COLOR 0
-#endif
-
-// <o> NRFX_SPI_CONFIG_DEBUG_COLOR  - ANSI escape code prefix.
-
-// <0=> Default
-// <1=> Black
-// <2=> Red
-// <3=> Green
-// <4=> Yellow
-// <5=> Blue
-// <6=> Magenta
-// <7=> Cyan
-// <8=> White
-
-#ifndef NRFX_SPI_CONFIG_DEBUG_COLOR
-#define NRFX_SPI_CONFIG_DEBUG_COLOR 0
-#endif
-
-// </e>
-
-// </e>
 
 // <e> NRFX_SWI_ENABLED - nrfx_swi - SWI/EGU peripheral allocator
 //==========================================================
@@ -1809,7 +1759,6 @@
 #define NRFX_WDT_CONFIG_LOG_ENABLED 0
 #endif
 // </e>
-
 
 // </e>
 
