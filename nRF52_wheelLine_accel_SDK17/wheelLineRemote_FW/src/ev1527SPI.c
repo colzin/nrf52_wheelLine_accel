@@ -74,15 +74,62 @@ NRF_LOG_MODULE_REGISTER();
  * Tested at 43 bits, got 340us pulse. TODO test and optimize
  * Tested at 42 bits, got 330us pulse, but actual RF was only active for 309us
  * Tested at 43 bits, RF active for 321us.
- * Tested at 45 bits, RF active for
+ * Tested at 45 bits, RF active for 340us, just like remote of 339us!
  */
 
 #define SPI_BITS_PER_SUB_BIT 45
-#define EXTRA_PREAMBLE_ZEROS 0
 
-#define SPI_TX_BYTES ((EV1527_SUB_BITS_PER_PACKET*SPI_BITS_PER_SUB_BIT)/8+(EXTRA_PREAMBLE_ZEROS*SPI_BITS_PER_SUB_BIT)) // tune to be the size of an EV1527 packet.
+#define SPI_TX_BYTES ((EV1527_SUB_BITS_PER_PACKET*SPI_BITS_PER_SUB_BIT)/8) // tune to be the size of an EV1527 packet.
 
-#define TX_ITVL_MS 1 // How often to keep alive the receiver, TODO tune
+/* How long to wait between sending, to re-send. Need to keep alive
+ * 1 seems to work, not longer.
+ */
+#define TX_REPEAT_MS 1 // How often to keep alive the receiver
+
+#define TX_TEST_ITVL_MS 1
+#define TX_TEST_NUM_REPEATS 50
+
+uint32_t g_iterator;
+
+/*
+ * For our 6-channel remote:
+ * 0 does nothing
+ * 1 does nothing
+ * 2 does ch 4
+ * 3 does ch 4
+ * 4 does ch 2
+ * 5 does ch 2
+ * 6 does ch 6
+ * 7 does ch 6
+ * 8 does ch 1
+ * 9 does ch 1
+ * A does ch 5
+ * B does ch 5
+ * C does ch 3
+ * D does ch 3
+ * E does nothing
+ * F does nothing
+ */
+
+/*
+ * For our 8-channel remote:
+ * 0 does nothing
+ * 1 does nothing
+ * 2 does ch 5
+ * 3 does ch 5
+ * 4 does ch 3
+ * 5 does ch 3
+ * 6 does ch 7
+ * 7 does ch 7
+ * 8 does ch 4
+ * 9 does ch 4
+ * A does nothing
+ * B does nothing
+ * C does ch 2
+ * D does ch 2
+ * E does ch 1
+ * F does ch 1
+ */
 
 /*************************************************************************************
  *  Variables
@@ -99,7 +146,8 @@ static const nrfx_spi_t m_spi = NRFX_SPI_INSTANCE(2);
 // SPI variables
 __ALIGNED(4) static uint8_t m_spiTxBytes[SPI_TX_BYTES];
 static nrfx_spi_xfer_desc_t m_xfer;
-static volatile bool m_spiTransferDone;
+static volatile bool m_spiXferDone;
+static uint32_t m_spiTransfesRemaining;
 
 static uint32_t g_lastTx_ms;
 
@@ -116,7 +164,7 @@ static void spiIsrHandler(nrfx_spi_evt_t const* p_event, void* p_context)
     switch (p_event->type)
     {
         case NRFX_SPI_EVENT_DONE:
-            m_spiTransferDone = true;
+            m_spiXferDone = true;
         break;
         default:
             NRF_LOG_WARNING("SPI event %d not handled", p_event->type)
@@ -172,8 +220,44 @@ static uint32_t setBits(uint32_t numBits, uint8_t* pArray, uint32_t bitIndex)
     return bitsSet;
 }
 
-static ret_code_t startTransfer(uint32_t address, uint8_t _4DataBits)
+static ret_code_t startTransfer(void)
 {
+    if (!m_spiXferDone)
+    {
+        NRF_LOG_ERROR("Can't send, still in progress sending a transfer");
+        return NRF_ERROR_BUSY;
+    }
+    // Start the data Tx
+    m_spiXferDone = false;
+    ret_code_t ret = nrfx_spi_xfer(&m_spi, &m_xfer, 0);
+    switch (ret)
+    {
+        case NRF_SUCCESS:
+            //            NRF_LOG_INFO("EF1527 TX start")
+            //            ;
+        break;
+        case NRFX_ERROR_NOT_SUPPORTED:
+            m_spiXferDone = true; // Failed to start
+            NRF_LOG_ERROR("nrfx_spi_xfer error 0x%x", ret)
+            ;
+        break;
+        default:
+            NRF_LOG_ERROR("nrfx_spi_xfer error 0x%x", ret)
+            ;
+            m_spiXferDone = true;
+        break;
+    }
+    return ret;
+}
+
+static ret_code_t writeTxBuffer(uint32_t address, uint8_t _4DataBits)
+{
+    if (!m_spiXferDone)
+    {
+        NRF_LOG_ERROR("Can't write TX buffer, TX still in progress");
+        return NRF_ERROR_BUSY;
+    }
+
     /* Our remote to copy sends data bits (Left first, MSBit first):
      * 0b 0010 0000 1101 0111 0100 1110 0
      * EV1527 address is 20 bits, data is 4 bits. Should have 24 bits total.
@@ -184,13 +268,9 @@ static ret_code_t startTransfer(uint32_t address, uint8_t _4DataBits)
      * 4 bits are data, 20 address.
      * So set address to 0x20D74, Data to 0xE
      */
-    if (!m_spiTransferDone)
-    {
-        NRF_LOG_ERROR("Can't send, still in progress sending a transfer");
-        return NRF_ERROR_BUSY;
-    }
+
     // If here, SPI is ready. Fill with desired bits and start transfer
-    NRF_LOG_INFO("Sending addr 0x%x, data 0x%x", address, _4DataBits);
+    NRF_LOG_INFO("Writing addr 0x%x, data 0x%x", address, _4DataBits);
     // Default to zeros (not transmitting)
     memset(m_spiTxBytes, 0, sizeof(m_spiTxBytes));
     // Set the preamble: 1 sub-bit high, 31 sub-bits low
@@ -199,7 +279,7 @@ static ret_code_t startTransfer(uint32_t address, uint8_t _4DataBits)
     // We have now set one sub-bit, now we need 31 low sub-bits
     spiBitIndex += (31 * SPI_BITS_PER_SUB_BIT);
     // Add 2 more to space out longer
-    spiBitIndex += (EXTRA_PREAMBLE_ZEROS * SPI_BITS_PER_SUB_BIT);
+//    spiBitIndex += (EXTRA_PREAMBLE_ZEROS * SPI_BITS_PER_SUB_BIT);
 
     // 20 address bits, 4 sub-bits per bit, then * by spi bits per sub-bit
 //    address &= 0x000FFFFF;
@@ -224,50 +304,51 @@ static ret_code_t startTransfer(uint32_t address, uint8_t _4DataBits)
         { // Set a 1: sub-bits are 0b1110
             spiBitIndex += setBits(3 * SPI_BITS_PER_SUB_BIT, m_spiTxBytes, spiBitIndex);
             spiBitIndex += (1 * SPI_BITS_PER_SUB_BIT);
+            NRF_LOG_DEBUG("D%d bit=1", i);
         }
         else
         { // Set a zero: 0b1000
             spiBitIndex += setBits(SPI_BITS_PER_SUB_BIT, m_spiTxBytes, spiBitIndex);
             spiBitIndex += (3 * SPI_BITS_PER_SUB_BIT);
+            NRF_LOG_DEBUG("D%d bit=0", i);
         }
+
     }
-    // Start the data Tx
-    m_spiTransferDone = false;
-    ret_code_t ret = nrfx_spi_xfer(&m_spi, &m_xfer, 0);
-    switch (ret)
-    {
-        case NRF_SUCCESS:
-            //            NRF_LOG_INFO("EF1527 TX start")
-//            ;
-        break;
-        case NRFX_ERROR_NOT_SUPPORTED:
-            m_spiTransferDone = true; // Failed to start
-            NRF_LOG_ERROR("nrfx_spi_xfer error 0x%x", ret)
-            ;
-        break;
-        default:
-            NRF_LOG_ERROR("nrfx_spi_xfer error 0x%x", ret)
-            ;
-            m_spiTransferDone = true;
-        break;
-    }
-    return ret;
+    return NRF_SUCCESS;
 }
 
 static void poll(void)
 {
-    if (!m_spiTransferDone)
+    if (!m_spiXferDone)
     {
-//        NRF_LOG_WARNING("txPoll, already sending a transmission, wait");
-        g_lastTx_ms = uptimeCounter_getUptimeMs(); // Come back in 10ms
+        g_lastTx_ms = uptimeCounter_getUptimeMs(); // Still going, update
         return;
     }
-    if (uptimeCounter_elapsedSince(g_lastTx_ms) >= TX_ITVL_MS)
+    // If here, Transfer is done
+    if (m_spiTransfesRemaining)
     {
-        ret_code_t ret = startTransfer(0x020D74, ((g_lastTx_ms / 1000) % 16));
+        if (m_spiXferDone && uptimeCounter_elapsedSince(g_lastTx_ms) >= TX_REPEAT_MS)
+        {
+            startTransfer();
+            m_spiTransfesRemaining--;
+        }
+        return;
+    }
+    // If here, we are done looping, write a new set to loop
+    if (uptimeCounter_elapsedSince(g_lastTx_ms) >= TX_TEST_ITVL_MS)
+    {
+        ret_code_t ret = writeTxBuffer(0x020D74, (uint8_t)(g_iterator++));
+        if (g_iterator > 0xF)
+        {
+            g_iterator = 0;
+        }
         if (NRF_SUCCESS != ret)
         {
-            NRF_LOG_ERROR("Tx start error 0x%x", ret);
+            NRF_LOG_ERROR("Tx write error 0x%x", ret);
+        }
+        else
+        {
+            m_spiTransfesRemaining = TX_TEST_NUM_REPEATS; // Loop this many times
         }
         g_lastTx_ms = uptimeCounter_getUptimeMs();
     }
@@ -305,7 +386,7 @@ void ev1527SPI_init(void)
                  NRF_GPIO_PIN_H0H1,
                  NRF_GPIO_PIN_NOSENSE);
     memset(m_spiTxBytes, 0, sizeof(m_spiTxBytes));
-    m_spiTransferDone = true;
+    m_spiXferDone = true;
 
     m_xfer.p_rx_buffer = NULL;
     m_xfer.p_tx_buffer = m_spiTxBytes;
