@@ -36,6 +36,8 @@ ret_code_t spi0_write(spi0Slave_t slave,uint8_t* pData, uint32_t len, bool keepC
 
 ret_code_t spi0_read(spi0Slave_t slave,uint8_t* pData, uint32_t len, bool keepCSAsserted);
 
+ret_code_t spi0_xfer(spi0Slave_t slave, nrfx_spi_xfer_desc_t* pXfer, bool keepCSAsserted);
+
 bool spi0_isInitted(void);
 
 void spi0_init(void);

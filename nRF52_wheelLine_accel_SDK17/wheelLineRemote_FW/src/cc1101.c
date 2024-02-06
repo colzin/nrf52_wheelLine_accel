@@ -127,9 +127,22 @@ NRF_LOG_MODULE_REGISTER();
 #define CC1101_READ_SINGLE  0x80
 #define CC1101_READ_BURST   0xC0
 
+#define TX_TEST_ITVL_MS 3000 // non-zero to run TX test poll
+#define TEST_PKT_LEN 60
+
+#define RX_POLL_ITVL_MS 500 // Datasheet says not to spam SPI with traffic
+
 /*************************************************************************************
  *  Variables
  ************************************************************************************/
+
+static uint8_t m_lastStatus;
+
+#if TX_TEST_ITVL_MS
+static uint32_t m_lastTx_ms;
+#endif // #if TX_TEST_ITVL_MS
+
+static uint32_t m_lastRxPoll_ms;
 
 /*************************************************************************************
  *  Prototypes
@@ -139,23 +152,47 @@ NRF_LOG_MODULE_REGISTER();
  *  Functions
  ************************************************************************************/
 
+static void updateStatus(uint8_t newVal)
+{
+
+    if (m_lastStatus != newVal)
+    {
+        NRF_LOG_INFO("Status from 0x%x to 0x%x", m_lastStatus, newVal);
+        m_lastStatus = newVal;
+    }
+}
+
 static bool cc1101_readSingleByte(uint8_t address, uint8_t* pByte)
 {
     // Just need the address byte for TX
-    uint8_t buf = (address | CC1101_READ_SINGLE);
+    uint8_t txByte = (address | CC1101_READ_SINGLE);
+    uint8_t rxBytes[2];
     // Send 1 byte, address
-    ret_code_t ret = spi0_write(spi0_cc1101, &buf, 1, true);
-    // Read 1 byte in, the byte after writing address
-    ret |= spi0_read(spi0_cc1101, pByte, 1, false);
-//    NRF_LOG_INFO("Wrote 0x%x, read 0x%x, data 0x%x", txBuf, rxBuf, *data);
+    nrfx_spi_xfer_desc_t xfer;
+    xfer.p_rx_buffer = rxBytes;
+    xfer.p_tx_buffer = &txByte;
+    xfer.rx_length = 2;
+    xfer.tx_length = 1;
+    ret_code_t ret = spi0_xfer(spi0_cc1101, &xfer, false);
+    updateStatus(rxBytes[0]);
+//    NRF_LOG_INFO("Wrote 0x%x, read Status 0x%x, byte 0x%x", txByte, rxBytes[0], rxBytes[1]);
+    *pByte = rxBytes[1];
     return ret == NRF_SUCCESS ? true : false;
 }
 
 // Command strobes are 1-byte addresses which trigger things
 static bool cc1101_strobe(uint8_t address)
 {
-    // Send 1 byte, address to execute a task
-    ret_code_t ret = spi0_write(spi0_cc1101, &address, 1, false);
+    // Send 1 byte, address to execute a task, read back the status reg
+    uint8_t sres;
+    nrfx_spi_xfer_desc_t xfer;
+    xfer.p_rx_buffer = &sres;
+    xfer.p_tx_buffer = &address;
+    xfer.rx_length = 1;
+    xfer.tx_length = 1;
+    ret_code_t ret = spi0_xfer(spi0_cc1101, &xfer, false);
+    updateStatus(sres);
+    NRF_LOG_INFO("Strobed 0x%x, read Status 0x%x", address, sres);
     return ret == NRF_SUCCESS ? true : false;
 }
 
@@ -164,11 +201,15 @@ static bool cc1101_writeSingleByte(uint8_t address, uint8_t data)
     uint8_t tx_data[2];
     tx_data[0] = address;
     tx_data[1] = data;
-    ret_code_t ret = spi0_write(spi0_cc1101, tx_data, 2, false);
-    if (NRF_SUCCESS != ret)
-    {
-        NRF_LOG_ERROR("spi_trans error 0x%x", ret);
-    }
+    uint8_t sres;
+    nrfx_spi_xfer_desc_t xfer;
+    xfer.p_rx_buffer = &sres;
+    xfer.p_tx_buffer = tx_data;
+    xfer.rx_length = 1;
+    xfer.tx_length = 2;
+    ret_code_t ret = spi0_xfer(spi0_cc1101, &xfer, false);
+    updateStatus(sres);
+//    NRF_LOG_INFO("Wrote address 0x%x to 0x%x, read Status 0x%x", address, data, sres);
     return ret == NRF_SUCCESS ? true : false;
 }
 
@@ -188,91 +229,90 @@ static bool cc1101_readBurst(uint8_t startAddress, uint8_t* buffer, uint32_t len
     return ret == NRF_SUCCESS ? true : false;
 }
 
-bool cc1101_selfTest(void)
+static bool cc1101_reboot(void)
 {
-    uint8_t partNum;
-    uint8_t version;
-    bool ret;
-    // Wait for it to boot. Datasheet says max of
-    spi0_init(); // Make sure pins are muxed and working
+    // Wait for it to boot. It will drive MISO low when we drive CS low, if it's ready
     uint32_t retries = 100;
-    uint32_t ms_timestamp = uptimeCounter_getUptimeMs();
+//    uint32_t ms_timestamp = uptimeCounter_getUptimeMs();
     while (retries)
-    { //  drive CS low, see if it responds by driving MISO low.
-        NRF_P0->OUTCLR = (1UL << SPI0_CC1101_CS_GPIO);
-        nrf_delay_us(10); // Wait for it to pull line low
-        if (0 == ((NRF_P0->IN >> SPI0_MISO_PIN) & 1UL))
-        { // If MISO is low, then CC1101 is ready.
-            NRF_LOG_INFO("CC1101 pulled MISO low, ready");
+    { //  drive CS low, see if it responds by driving MISO low. Can do this by reading status byte
+        cc1101_strobe(CC1101_STROBE_SNOP);
+        if (m_lastStatus & 0x80)
+        {
+            // Else wait and try again
+            nrf_delay_ms(1);
+            retries--;
+        }
+        else
+        {
+//            NRF_LOG_INFO("Detected CC1101 ready after %d ms, %d retries left", uptimeCounter_elapsedSince(ms_timestamp),
+//                         retries);
             break;
         }
-        NRF_P0->OUTSET = (1UL << SPI0_CC1101_CS_GPIO);
-        // Else wait and try again
-        nrf_delay_ms(1);
-        retries--;
     }
     if (!retries)
     {
         NRF_LOG_ERROR("Did not detect CC1101, retries exceeded");
         return false;
     }
-    else
-    {
-        NRF_LOG_INFO("Detected CC1101 ready after %d ms, %d retries left", uptimeCounter_elapsedSince(ms_timestamp),
-                     retries);
-    }
-    NRF_LOG_INFO("Starting CC1101 self test:");
+//    NRF_LOG_INFO("Checking for CC1101 to be rebooted:");
     // Issue software reset
-    ret = cc1101_strobe(CC1101_STROBE_SRES);
+    bool ret = cc1101_strobe(CC1101_STROBE_SRES);
     if (!ret)
     {
         NRF_LOG_WARNING("Failed to send strobe command");
     }
     // Wait for it to reboot. Datasheet says max of
     retries = 100;
-    ms_timestamp = uptimeCounter_getUptimeMs();
+//    ms_timestamp = uptimeCounter_getUptimeMs();
     while (retries)
-    { //  drive CS low, see if it responds by driving MISO low.
-        NRF_P0->OUTCLR = (1UL << SPI0_CC1101_CS_GPIO);
-        nrf_delay_us(10); // Wait for it to pull line low
-        if (0 == ((NRF_P0->IN >> SPI0_MISO_PIN) & 1UL))
-        { // If MISO is low, then CC1101 is ready.
-            NRF_LOG_INFO("CC1101 pulled MISO low, ready");
+    { //  drive CS low, see if it responds by driving MISO low. Can do this by reading status byte
+        cc1101_strobe(CC1101_STROBE_SNOP);
+        if (m_lastStatus & 0x80)
+        {
+            // Else wait and try again
+            nrf_delay_ms(1);
+            retries--;
+        }
+        else
+        {
+//            NRF_LOG_INFO("Detected CC1101 ready after %d ms, %d retries left", uptimeCounter_elapsedSince(ms_timestamp),
+//                         retries);
             break;
         }
-        NRF_P0->OUTSET = (1UL << SPI0_CC1101_CS_GPIO);
-        // Else wait and try again
-        nrf_delay_ms(1);
-        retries--;
     }
     if (!retries)
     {
         NRF_LOG_ERROR("Did not detect CC1101, retries exceeded");
         return false;
     }
-    else
-    {
-        NRF_LOG_INFO("Detected CC1101 ready after %d ms, %d retries left", uptimeCounter_elapsedSince(ms_timestamp),
-                     retries);
-    }
-    // Read partNum and
+    return true;
+}
+
+bool cc1101_selfTest(void)
+{
+    uint8_t partNum;
+    uint8_t version;
+    bool ret;
+
+    // Read partNum and version registers
     ret = cc1101_readSingleByte(CC1101_PARTNUM, &partNum);
     if (ret != true)
     {
         NRF_LOG_ERROR("Error reading PARTNUM");
-        return ret;
-    }
-    ret = cc1101_readSingleByte(CC1101_VERSION, &version);
-    if (ret != true)
-    {
-        NRF_LOG_ERROR("Error reading VERSION");
-        return ret;
+        return false;
     }
     // CC1101 datasheet says partnum should be 0
     if (0 != partNum)
     {
         NRF_LOG_ERROR("Partnum is %d, expected 0", partNum);
         return false;
+    }
+    ret = cc1101_readSingleByte(CC1101_VERSION, &version);
+    if (ret != true)
+    {
+        NRF_LOG_ERROR("Error reading VERSION");
+        return ret;
     }
     // Versions in the past have been 20 and 4. Datasheet says subject to change without notice.
     if (0 == version)
@@ -285,7 +325,8 @@ bool cc1101_selfTest(void)
         NRF_LOG_WARNING("Version is %d, expected %d", version, 4);
         // Continue
     }
-    NRF_LOG_INFO("Self Test Passed");
+    NRF_LOG_INFO("CC1101: Self Test Passed. Detected partnum %d, version %d, status 0x%x", partNum, version,
+                 m_lastStatus);
     return true;
 
 }
@@ -293,7 +334,6 @@ bool cc1101_selfTest(void)
 void cc1101_sidle()
 {
     uint8_t marcState;
-
     cc1101_strobe(CC1101_STROBE_SIDLE);
     cc1101_readSingleByte(CC1101_MARCSTATE, &marcState);
     while (marcState != 0x01)
@@ -303,7 +343,6 @@ void cc1101_sidle()
     }
     cc1101_strobe(CC1101_STROBE_SFTX);
     nrf_delay_us(100);
-
 }
 
 void cc1101_flushRxFifo(void)
@@ -411,8 +450,77 @@ void cc1101_initASKTx_myStudio(void)
     cc1101_flushTxFifo();
     cc1101_flushRxFifo();
     cc1101_sidle();
-
 }
+
+static void setupFeb6(void)
+{
+    if (m_lastStatus & 0x70)
+    {
+        NRF_LOG_DEBUG("CC1101 in state %d, not idle, go to idle:", m_lastStatus >> 4);
+        cc1101_sidle(); // Idle it before writing configs
+    }
+
+    /* Rf settings for CC1101, exported Feb 06, 2024
+     *432.99MHz, XTAL 26MHz
+     */
+    cc1101_writeSingleByte(CC1101_IOCFG0, 0x06);  //GDO0 Output Pin Configuration
+    cc1101_writeSingleByte(CC1101_FIFOTHR, 0x47); //RX FIFO and TX FIFO Thresholds
+    cc1101_writeSingleByte(CC1101_PKTCTRL0, 0x05); //Packet Automation Control
+    cc1101_writeSingleByte(CC1101_FSCTRL1, 0x06); //Frequency Synthesizer Control
+    cc1101_writeSingleByte(CC1101_FREQ2, 0x10);   //Frequency Control Word, High Byte
+    cc1101_writeSingleByte(CC1101_FREQ1, 0xA7);   //Frequency Control Word, Middle Byte
+    cc1101_writeSingleByte(CC1101_FREQ0, 0x62);   //Frequency Control Word, Low Byte
+    cc1101_writeSingleByte(CC1101_MDMCFG4, 0xF5); //Modem Configuration
+    cc1101_writeSingleByte(CC1101_MDMCFG3, 0x83); //Modem Configuration
+    cc1101_writeSingleByte(CC1101_MDMCFG2, 0x33); //Modem Configuration
+    cc1101_writeSingleByte(CC1101_DEVIATN, 0x15); //Modem Deviation Setting
+    cc1101_writeSingleByte(CC1101_MCSM0, 0x18);   //Main Radio Control State Machine Configuration
+    cc1101_writeSingleByte(CC1101_FOCCFG, 0x14);  //Frequency Offset Compensation Configuration
+    cc1101_writeSingleByte(CC1101_AGCCTRL0, 0x92);  //AGC Control
+    cc1101_writeSingleByte(CC1101_WORCTRL, 0xFB); //Wake On Radio Control
+    cc1101_writeSingleByte(CC1101_FREND0, 0x11);  //Front End TX Configuration
+    cc1101_writeSingleByte(CC1101_FSCAL3, 0xE9);  //Frequency Synthesizer Calibration
+    cc1101_writeSingleByte(CC1101_FSCAL2, 0x2A);  //Frequency Synthesizer Calibration
+    cc1101_writeSingleByte(CC1101_FSCAL1, 0x00);  //Frequency Synthesizer Calibration
+    cc1101_writeSingleByte(CC1101_FSCAL0, 0x1F);  //Frequency Synthesizer Calibration
+    cc1101_writeSingleByte(CC1101_TEST2, 0x81);   //Various Test Settings
+    cc1101_writeSingleByte(CC1101_TEST1, 0x35);   //Various Test Settings
+    cc1101_writeSingleByte(CC1101_TEST0, 0x09);   //Various Test Settings
+    uint8_t paTableBytes[8] = { 0x00, 0x1D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    cc1101_writeBurst(CC1101_PATABLE, paTableBytes, 8);
+
+    cc1101_writeSingleByte(CC1101_PKTLEN, TEST_PKT_LEN);
+    NRF_LOG_WARNING("CC1101 feb 6 COMPLETE");
+}
+
+/* Packet sniffer settings Feb 06 2024
+ # ---------------------------------------------------
+ # Packet sniffer stttings for CC1101
+ # ---------------------------------------------------
+ IOCFG0   |0x0002|0x06|GDO0 Output Pin Configuration
+ FIFOTHR  |0x0003|0x47|RX FIFO and TX FIFO Thresholds
+ PKTCTRL0 |0x0008|0x05|Packet Automation Control
+ FSCTRL1  |0x000B|0x06|Frequency Synthesizer Control
+ FREQ2    |0x000D|0x10|Frequency Control Word, High Byte
+ FREQ1    |0x000E|0xA7|Frequency Control Word, Middle Byte
+ FREQ0    |0x000F|0x62|Frequency Control Word, Low Byte
+ MDMCFG4  |0x0010|0xF5|Modem Configuration
+ MDMCFG3  |0x0011|0x83|Modem Configuration
+ MDMCFG2  |0x0012|0x33|Modem Configuration
+ DEVIATN  |0x0015|0x15|Modem Deviation Setting
+ MCSM0    |0x0018|0x18|Main Radio Control State Machine Configuration
+ FOCCFG   |0x0019|0x14|Frequency Offset Compensation Configuration
+ AGCCTRL0 |0x001D|0x92|AGC Control
+ WORCTRL  |0x0020|0xFB|Wake On Radio Control
+ FREND0   |0x0022|0x11|Front End TX Configuration
+ FSCAL3   |0x0023|0xE9|Frequency Synthesizer Calibration
+ FSCAL2   |0x0024|0x2A|Frequency Synthesizer Calibration
+ FSCAL1   |0x0025|0x00|Frequency Synthesizer Calibration
+ FSCAL0   |0x0026|0x1F|Frequency Synthesizer Calibration
+ TEST2    |0x002C|0x81|Various Test Settings
+ TEST1    |0x002D|0x35|Various Test Settings
+ TEST0    |0x002E|0x09|Various Test Settings
+ */
 
 pkt_format_t cc1101_getPacketConfigurationMode()
 {
@@ -500,28 +608,67 @@ uint8_t* cc1101_tryReceiveData(uint32_t* pNumBytes)
     return pData;
 }
 
+static void sendTestPacket(void)
+{
+
+    uint8_t bytes[TEST_PKT_LEN];
+    for (uint32_t i = 0; i < TEST_PKT_LEN; i++)
+    {
+        bytes[i] = (uint8_t)i;
+    }
+
+    cc1101_writeBurst(CC1101_TXFIFO, bytes, TEST_PKT_LEN);
+    cc1101_readSingleByte(CC1101_TXBYTES, bytes);
+    NRF_LOG_DEBUG("Wrote %d bytes to txfifo, TXYBTES says %d, status 0x%x", TEST_PKT_LEN, bytes[0], m_lastStatus);
+    cc1101_strobe(CC1101_STROBE_STX);
+}
+
 static void cc1101Poll(void)
 {
-    uint32_t numBytesReceived;
-    uint8_t* pData = cc1101_tryReceiveData(&numBytesReceived);
-    if (NULL != pData)
+    if (uptimeCounter_elapsedSince(m_lastRxPoll_ms) >= RX_POLL_ITVL_MS)
     {
-        NRF_LOG_INFO("CC1101 received %d bytes ", numBytesReceived);
-        free(pData);
+        cc1101_strobe(CC1101_STROBE_SNOP);
+        uint32_t numBytesReceived;
+        uint8_t* pData = cc1101_tryReceiveData(&numBytesReceived);
+        if (NULL != pData)
+        {
+            NRF_LOG_INFO("CC1101 received %d bytes ", numBytesReceived);
+            free(pData);
+        }
+        m_lastRxPoll_ms = uptimeCounter_getUptimeMs();
     }
+
+#if TX_TEST_ITVL_MS
+    if (uptimeCounter_elapsedSince(m_lastTx_ms) >= TX_TEST_ITVL_MS)
+    {
+        // TODO run a TX packet
+        sendTestPacket();
+        m_lastTx_ms = uptimeCounter_getUptimeMs();
+    }
+#endif // #if TX_TEST_ITVL_MS
 }
 
 void cc1101_init(void)
 {
-    bool testPass = cc1101_selfTest();
+    spi0_init(); // Make sure pins are muxed and working
+    m_lastStatus = 0xFF;
+    bool testPass = cc1101_reboot();
     if (!testPass)
     {
-        NRF_LOG_ERROR("Couldn't init CC1101");
+        NRF_LOG_ERROR("Couldn't reboot CC1101");
+        return;
+    }
+    testPass = cc1101_selfTest();
+    if (!testPass)
+    {
+        NRF_LOG_ERROR("CC1101 self-test failed");
         return;
     }
     // If here, init it
-    cc1101_initASKTx_myStudio();
+//    cc1101_initASKTx_myStudio();
+    setupFeb6(); // TODO figure out optimal parameters
+
     pollers_registerPoller(cc1101Poll);
-    // Start receiving
+// Start receiving
     cc1101_setRxState();
 }

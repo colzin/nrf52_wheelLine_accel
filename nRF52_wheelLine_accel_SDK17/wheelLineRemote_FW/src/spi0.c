@@ -70,10 +70,10 @@ static void spiIsrHandler(nrfx_spi_evt_t const* p_event, void* p_context)
 
 static void setupCSOutputs(void)
 {
-// LEDs are active low, but radio is active high
+#if COMPILE_FOR_FEATHER
     NRF_P0->OUTSET = (1UL << SPI0_EINK_CS_GPIO);
 #if HIGH_DRIVE_PINS
-    nrf_gpio_cfg( SPI0_EINK_CS_GPIO,
+    nrf_gpio_cfg(SPI0_EINK_CS_GPIO,
                  NRF_GPIO_PIN_DIR_OUTPUT,
                  NRF_GPIO_PIN_INPUT_DISCONNECT,
                  NRF_GPIO_PIN_NOPULL,
@@ -82,6 +82,33 @@ static void setupCSOutputs(void)
 #else
     nrf_gpio_cfg_output(SPI0_EINK_CS_GPIO);
 #endif // #if HIGH_DRIVE_PINS
+
+    NRF_P0->OUTSET = (1UL << SPI0_EINK_SRAM_CS_GPIO);
+    #if HIGH_DRIVE_PINS
+        nrf_gpio_cfg(SPI0_EINK_SRAM_CS_GPIO,
+                     NRF_GPIO_PIN_DIR_OUTPUT,
+                     NRF_GPIO_PIN_INPUT_DISCONNECT,
+                     NRF_GPIO_PIN_NOPULL,
+                     NRF_GPIO_PIN_H0H1,
+                     NRF_GPIO_PIN_NOSENSE);
+    #else
+        nrf_gpio_cfg_output(SPI0_EINK_SRAM_CS_GPIO);
+    #endif // #if HIGH_DRIVE_PINS
+
+        NRF_P0->OUTSET = (1UL << SPI0_SDCARD_CS_GPIO);
+        #if HIGH_DRIVE_PINS
+            nrf_gpio_cfg(SPI0_SDCARD_CS_GPIO,
+                         NRF_GPIO_PIN_DIR_OUTPUT,
+                         NRF_GPIO_PIN_INPUT_DISCONNECT,
+                         NRF_GPIO_PIN_NOPULL,
+                         NRF_GPIO_PIN_H0H1,
+                         NRF_GPIO_PIN_NOSENSE);
+        #else
+            nrf_gpio_cfg_output(SPI0_SDCARD_CS_GPIO);
+        #endif // #if HIGH_DRIVE_PINS
+
+#endif // #if COMPILE_FOR_FEATHER
+
     NRF_P0->OUTSET = (1UL << SPI0_CC1101_CS_GPIO);
 #if HIGH_DRIVE_PINS
     nrf_gpio_cfg(SPI0_CC1101_CS_GPIO,
@@ -102,6 +129,7 @@ static void assertCS(spi0Slave_t slave)
         case spi0_cc1101:
             NRF_P0->OUTCLR = (1UL << SPI0_CC1101_CS_GPIO);
         break;
+#if COMPILE_FOR_FEATHER
         case spi0_einkScreen:
             NRF_P0->OUTCLR = (1UL << SPI0_EINK_CS_GPIO);
         break;
@@ -111,6 +139,7 @@ static void assertCS(spi0Slave_t slave)
         case spi0_sdcard:
             NRF_P0->OUTCLR = (1UL << SPI0_SDCARD_CS_GPIO);
         break;
+#endif // #if COMPILE_FOR_FEATHER
         default:
             NRF_LOG_ERROR("SPI0 slave %d not supported!", slave)
             ;
@@ -119,12 +148,15 @@ static void assertCS(spi0Slave_t slave)
 }
 
 static void deassertCS(void)
-{
-    // TODO add any other slave CS lines
+{    // TODO add any other slave CS lines
+#if COMPILE_FOR_FEATHER
     NRF_P0->OUTSET = (1UL << SPI0_CC1101_CS_GPIO)
             | (1UL << SPI0_EINK_CS_GPIO)
             | (1UL << SPI0_EINK_SRAM_CS_GPIO)
             | (1UL << SPI0_SDCARD_CS_GPIO);
+#elif COMPILE_FOR_PCA10040
+    NRF_P0->OUTSET = (1UL << SPI0_CC1101_CS_GPIO);
+#endif // #if COMPILE_FOR_FEATHER
 }
 
 ret_code_t spi0_write(spi0Slave_t slave, uint8_t* pData, uint32_t len, bool keepCSAsserted)
@@ -285,6 +317,70 @@ ret_code_t spi0_read(spi0Slave_t slave, uint8_t* pData, uint32_t len, bool keepC
     return NRF_SUCCESS;
 }
 
+ret_code_t spi0_xfer(spi0Slave_t slave, nrfx_spi_xfer_desc_t* pXfer, bool keepCSAsserted)
+{
+    if (!m_initted)
+    {
+        spi0_init();
+    }
+#if NONBLOCKING
+    if (!m_spiXferDone)
+    {
+        NRF_LOG_ERROR("Can't send, still in progress sending a transfer");
+        return NRF_ERROR_BUSY;
+    }
+    // Start the data Tx
+    m_spiXferDone = false;
+#endif // #if NONBLOCKING
+
+    assertCS(slave);
+
+#if NONBLOCKING
+        m_spiXferDone = false;
+#endif // #if NONBLOCKING
+    ret_code_t ret = nrfx_spi_xfer(&m_spi, pXfer, 0);
+    if (NRF_SUCCESS != ret)
+    { // Bail out, release CS line
+        NRF_LOG_ERROR("SPI0 write, xfer error %d, bailing out", ret);
+        if (!keepCSAsserted)
+        {
+            deassertCS();
+        }
+#if NONBLOCKING
+            m_spiXferDone = true;
+#endif // #if NONBLOCKING
+        return ret;
+    }
+
+#if NONBLOCKING
+        uint32_t retries = 1000000;
+        while (!m_spiXferDone)
+        {
+            nrf_delay_us(1);
+            retries--;
+            if (!retries)
+            {
+                break;
+            }
+        }
+        if (!retries)
+        {
+            NRF_LOG_ERROR("SPI0 xfer: xfer Retries exceeded");
+            ret = NRF_ERROR_RESOURCES;
+            break;
+        }
+#endif // #if NONBLOCKING
+
+    if (!keepCSAsserted)
+    {
+        deassertCS();
+    }
+#if NONBLOCKING
+    m_spiXferDone = true;
+#endif // #if NONBLOCKING
+    return ret;
+}
+
 bool spi0_isInitted(void)
 {
     return m_initted;
@@ -311,17 +407,20 @@ void spi0_init(void)
         config.orc = 0x00; // TODO send zeros or something else?
         config.sck_pin = SPI0_SCK_PIN;
         config.ss_pin = NRFX_SPI_PIN_NOT_USED;
+
 #if NONBLOCKING
         ret_code_t ret = nrfx_spi_init(&m_spi, &config, spiIsrHandler, NULL);
         m_spiXferDone = true;
 #else
         ret_code_t ret = nrfx_spi_init(&m_spi, &config, NULL, NULL);
 #endif // #if NONBLOCKING
+
         if (NRF_SUCCESS != ret)
         {
             NRF_LOG_ERROR("nrfx_spi_init Error 0x%x", ret);
             return;
         }
+
 #if HIGH_DRIVE_PINS
         nrf_gpio_cfg(config.sck_pin,
                      NRF_GPIO_PIN_DIR_OUTPUT,
@@ -337,8 +436,8 @@ void spi0_init(void)
                      NRF_GPIO_PIN_NOSENSE);
 
 #endif // #if HIGH_DRIVE_PINS
-        NRF_LOG_INFO("SPI0 inited");
 
+//        NRF_LOG_INFO("SPI0 initted");
         m_initted = true;
     }
 }

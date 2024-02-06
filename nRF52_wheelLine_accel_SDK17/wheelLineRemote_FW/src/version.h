@@ -17,13 +17,16 @@ extern "C" {
 #define VERSION_MAJOR    0 // 1 byte
 #define VERSION_MINOR    0 // 1 byte
 #define VERSION_SUBMINOR 1 // 1 byte
-#define RUNNING_ON_PCA10040 0
-#define RUNNING_ON_FEATHER 1
-#if (RUNNING_ON_FEATHER&& RUNNING_ON_PCA10040)
-#error "Define one board to run on"
-#endif // #if (RUNNING_ON_FEATHER&& RUNNING_ON_PCA10040)
+#define COMPILE_FOR_PCA10040 1
+#if (!COMPILE_FOR_PCA10040)
+#define COMPILE_FOR_FEATHER 1
+#endif // #if (!COMPILE_FOR_PCA10040)
 
-#if RUNNING_ON_PCA10040
+#if (COMPILE_FOR_FEATHER&& COMPILE_FOR_PCA10040)
+#error "Define one board to run on"
+#endif // #if (COMPILE_FOR_FEATHER&& COMPILE_FOR_PCA10040)
+
+#if COMPILE_FOR_PCA10040
 ////////////////////////////   PINS on nRF52 DK PCA10040
 
 #define HAS_XTAL 1 // XTAL on PCA10040
@@ -39,8 +42,8 @@ extern "C" {
 #define PCA10040_GPIO7_UART_CTS   7
 #define PCA10040_GPIO8_UART_RXD   8
 
-#define PCA10040_GPIO9_NFC1  9 // Let the two NFC pins idle at the same state to save power
-#define PCA10040_GPIO10_NFC2 10 // Let the two NFC pins idle at the same state to save power
+//#define PCA10040_GPIO9_NFC1  9 // NEED TO SOLDER to use these, do not use
+//#define PCA10040_GPIO10_NFC2 10 // NEED TO SOLDER to use these, do not use
 
 #define PCA10040_GPIO11 11
 #define PCA10040_GPIO12 12
@@ -74,7 +77,7 @@ extern "C" {
 #define PCA10040_GPIO30 30
 #define PCA10040_GPIO31 31
 
-#elif RUNNING_ON_FEATHER
+#elif COMPILE_FOR_FEATHER
 
 // P0.00, p0.01 not broken out, used for XTAL?
 #define HAS_XTAL 1 // TODO double check
@@ -118,15 +121,13 @@ extern "C" {
 
 #else
 #error "define pins for your board please"
-#endif // #if RUNNING_ON_PCA10040
+#endif // #if COMPILE_FOR_PCA10040
 ////////////////////////// pins as we use them:
 
-#if RUNNING_ON_PCA10040
+#if COMPILE_FOR_PCA10040
 #warning "Compiling for PCA10040"
 
-#define HEARTBEAT_LED_GPIO_NUM LED_1
-
-#define ISR_DEBUG_GPIO LED_3
+#define HEARTBEAT_LED_GPIO_NUM PCA10040_GPIO17_LED_1
 
 // Use the pins for either EV1527 format
 #define I2S_LRCLK_PIN   UNUSED_PIN0 // Need a dummy pin
@@ -140,8 +141,15 @@ extern "C" {
 #define SPI0_MISO_PIN   PCA10040_GPIO12
 #define SPI0_MOSI_PIN   PCA10040_GPIO6_UART_TXD
 #define SPI0_SCK_PIN    PCA10040_GPIO11
-#define SPI0_EINK_CS_GPIO   PCA10040_GPIO9_NFC1 // 9=NFC1
-#define SPI0_CC1101_CS_GPIO PCA10040_GPIO10_NFC2 // 10=NFC2
+
+/* CC1101 pinout:
+ * GD0 goes to ?
+ * GD1 not pinned out on Solu 8-pin module
+ * GD2 goes to ?
+ * CS goes to ?
+ * MOSI, MISO, SCK pins. So use on "SPI0"
+ */
+#define SPI0_CC1101_CS_GPIO PCA10040_GPIO3
 
 /* I2C1:
  * Has LIS2DH12 on it, LED screen 7-segment
@@ -149,7 +157,7 @@ extern "C" {
 #define I2C1_SCL_PIN    PCA10040_GPIO28
 #define I2C1_SDA_PIN    PCA10040_GPIO29
 
-#elif RUNNING_ON_FEATHER
+#elif COMPILE_FOR_FEATHER
 #warning "Compiling for nRF52 Bluefruit Feather"
 #define HEARTBEAT_LED_GPIO_NUM FEATHER_ONBOARD_GPIO17_LED1
 
@@ -193,7 +201,7 @@ extern "C" {
 
 #else
 #error "define a board please"
-#endif // #if RUNNING_ON_PCA10040
+#endif // #if COMPILE_FOR_PCA10040
 
 #ifdef __cplusplus
 }
