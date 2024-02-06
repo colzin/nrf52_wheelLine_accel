@@ -130,7 +130,7 @@ NRF_LOG_MODULE_REGISTER();
 #define TX_TEST_ITVL_MS 3000 // non-zero to run TX test poll
 #define TEST_PKT_LEN 60
 
-#define RX_POLL_ITVL_MS 500 // Datasheet says not to spam SPI with traffic
+#define RX_POLL_ITVL_MS 900 // Datasheet says not to spam SPI with traffic
 
 /*************************************************************************************
  *  Variables
@@ -628,12 +628,24 @@ static void cc1101Poll(void)
     if (uptimeCounter_elapsedSince(m_lastRxPoll_ms) >= RX_POLL_ITVL_MS)
     {
         cc1101_strobe(CC1101_STROBE_SNOP);
-        uint32_t numBytesReceived;
-        uint8_t* pData = cc1101_tryReceiveData(&numBytesReceived);
-        if (NULL != pData)
+        if (0x20 == (m_lastStatus & 0xF0))
         {
-            NRF_LOG_INFO("CC1101 received %d bytes ", numBytesReceived);
-            free(pData);
+            if (uptimeCounter_elapsedSince(m_lastTx_ms) > 1000)
+            {
+                NRF_LOG_WARNING("Switching from TX to RX state");
+                cc1101_setRxState();
+            }
+        }
+        if (0x10 == (m_lastStatus & 0xF0))
+        {
+            NRF_LOG_DEBUG("Check for RX bytes");
+            uint32_t numBytesReceived;
+            uint8_t* pData = cc1101_tryReceiveData(&numBytesReceived);
+            if (NULL != pData)
+            {
+                NRF_LOG_INFO("CC1101 received %d bytes ", numBytesReceived);
+                free(pData);
+            }
         }
         m_lastRxPoll_ms = uptimeCounter_getUptimeMs();
     }

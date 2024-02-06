@@ -17,6 +17,7 @@ extern "C" {
 #define VERSION_MAJOR    0 // 1 byte
 #define VERSION_MINOR    0 // 1 byte
 #define VERSION_SUBMINOR 1 // 1 byte
+
 #define COMPILE_FOR_PCA10040 1
 #if (!COMPILE_FOR_PCA10040)
 #define COMPILE_FOR_FEATHER 1

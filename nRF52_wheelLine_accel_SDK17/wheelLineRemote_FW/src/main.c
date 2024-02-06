@@ -18,7 +18,7 @@
 #include "heartbeatBlink.h"
 #include "lis2dh.h"
 #include "pollers.h"
-
+#include "rttTerminal.h"
 #include <stdint.h>
 #include "uptimeCounter.h"
 #include "version.h"
@@ -52,6 +52,7 @@ static void initializeInputs(void)
 { // Inputs to our system
 
     // Init any input pins, ADC, etc so we have those inputs set up and polled early.
+    rttTerminal_init();
 //    lis2dh_init();
     cc1101_init();
 }
