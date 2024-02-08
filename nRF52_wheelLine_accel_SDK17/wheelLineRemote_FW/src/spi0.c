@@ -84,7 +84,7 @@ static void setupCSOutputs(void)
 #endif // #if HIGH_DRIVE_PINS
 
     NRF_P0->OUTSET = (1UL << SPI0_EINK_SRAM_CS_GPIO);
-    #if HIGH_DRIVE_PINS
+#if HIGH_DRIVE_PINS
         nrf_gpio_cfg(SPI0_EINK_SRAM_CS_GPIO,
                      NRF_GPIO_PIN_DIR_OUTPUT,
                      NRF_GPIO_PIN_INPUT_DISCONNECT,
@@ -92,11 +92,11 @@ static void setupCSOutputs(void)
                      NRF_GPIO_PIN_H0H1,
                      NRF_GPIO_PIN_NOSENSE);
     #else
-        nrf_gpio_cfg_output(SPI0_EINK_SRAM_CS_GPIO);
-    #endif // #if HIGH_DRIVE_PINS
+    nrf_gpio_cfg_output(SPI0_EINK_SRAM_CS_GPIO);
+#endif // #if HIGH_DRIVE_PINS
 
-        NRF_P0->OUTSET = (1UL << SPI0_SDCARD_CS_GPIO);
-        #if HIGH_DRIVE_PINS
+    NRF_P0->OUTSET = (1UL << SPI0_SDCARD_CS_GPIO);
+#if HIGH_DRIVE_PINS
             nrf_gpio_cfg(SPI0_SDCARD_CS_GPIO,
                          NRF_GPIO_PIN_DIR_OUTPUT,
                          NRF_GPIO_PIN_INPUT_DISCONNECT,
@@ -104,8 +104,8 @@ static void setupCSOutputs(void)
                          NRF_GPIO_PIN_H0H1,
                          NRF_GPIO_PIN_NOSENSE);
         #else
-            nrf_gpio_cfg_output(SPI0_SDCARD_CS_GPIO);
-        #endif // #if HIGH_DRIVE_PINS
+    nrf_gpio_cfg_output(SPI0_SDCARD_CS_GPIO);
+#endif // #if HIGH_DRIVE_PINS
 
 #endif // #if COMPILE_FOR_FEATHER
 
@@ -157,6 +157,7 @@ static void deassertCS(void)
 #elif COMPILE_FOR_PCA10040
     NRF_P0->OUTSET = (1UL << SPI0_CC1101_CS_GPIO);
 #endif // #if COMPILE_FOR_FEATHER
+//    NRF_LOG_DEBUG("Deasserted");
 }
 
 ret_code_t spi0_write(spi0Slave_t slave, uint8_t* pData, uint32_t len, bool keepCSAsserted)
@@ -178,20 +179,19 @@ ret_code_t spi0_write(spi0Slave_t slave, uint8_t* pData, uint32_t len, bool keep
     nrfx_spi_xfer_desc_t xfer;
     ret_code_t ret;
     uint32_t offset = 0;
-    uint32_t bytesToSend;
     assertCS(slave);
     // Note, limit per xfer is 511 bytes. To send more, use loop
     while (len)
     {
-        bytesToSend = len > 511 ? 511 : len;
         xfer.p_tx_buffer = pData + offset;
-        xfer.tx_length = bytesToSend;
+        xfer.tx_length = len > 511 ? 511 : len;
         xfer.p_rx_buffer = NULL;
         xfer.rx_length = 0;
 #if NONBLOCKING
         m_spiXferDone = false;
 #endif // #if NONBLOCKING
         ret = nrfx_spi_xfer(&m_spi, &xfer, 0);
+//        NRF_LOG_DEBUG("Wxfer tx %d, rx %d", xfer.tx_length, xfer.rx_length);
         if (NRF_SUCCESS != ret)
         { // Bail out, release CS line
             NRF_LOG_ERROR("SPI0 write, xfer error %d, bailing out", ret);
@@ -223,11 +223,11 @@ ret_code_t spi0_write(spi0Slave_t slave, uint8_t* pData, uint32_t len, bool keep
             break;
         }
 #endif // #if NONBLOCKING
-        len -= bytesToSend;
-        offset += bytesToSend;
+        len -= xfer.tx_length;
+        offset += xfer.tx_length;
     }
     // Now we are done, successfully
-
+//    NRF_LOG_DEBUG("Wrote 0x%x, %d long", *pData, offset);
     if (!keepCSAsserted)
     {
         deassertCS();
@@ -257,20 +257,19 @@ ret_code_t spi0_read(spi0Slave_t slave, uint8_t* pData, uint32_t len, bool keepC
     nrfx_spi_xfer_desc_t xfer;
     ret_code_t ret;
     uint32_t offset = 0;
-    uint32_t bytesToRead;
     assertCS(slave);
     // Note, limit per xfer is 511 bytes. To send more, use loop
     while (len)
     {
-        bytesToRead = len > 511 ? 511 : len;
         xfer.p_tx_buffer = NULL;
         xfer.tx_length = 0;
         xfer.p_rx_buffer = pData + offset;
-        xfer.rx_length = bytesToRead;
+        xfer.rx_length = len > 511 ? 511 : len;
 #if NONBLOCKING
         m_spiXferDone = false;
 #endif // #if NONBLOCKING
         ret = nrfx_spi_xfer(&m_spi, &xfer, 0);
+//        NRF_LOG_DEBUG("Rxfer tx %d, rx %d", xfer.tx_length, xfer.rx_length);
         if (NRF_SUCCESS != ret)
         { // Bail out, release CS line
             NRF_LOG_ERROR("SPI0 read, xfer error %d, bailing out", ret);
@@ -302,11 +301,10 @@ ret_code_t spi0_read(spi0Slave_t slave, uint8_t* pData, uint32_t len, bool keepC
             break;
         }
 #endif // #if NONBLOCKING
-        len -= bytesToRead;
-        offset += bytesToRead;
+        len -= xfer.rx_length;
+        offset += xfer.rx_length;
     }
     // Now we are done, successfully
-
     if (!keepCSAsserted)
     {
         deassertCS();
@@ -339,6 +337,7 @@ ret_code_t spi0_xfer(spi0Slave_t slave, nrfx_spi_xfer_desc_t* pXfer, bool keepCS
         m_spiXferDone = false;
 #endif // #if NONBLOCKING
     ret_code_t ret = nrfx_spi_xfer(&m_spi, pXfer, 0);
+//    NRF_LOG_DEBUG("xfer tx %d, rx %d", pXfer->tx_length, pXfer->rx_length);
     if (NRF_SUCCESS != ret)
     { // Bail out, release CS line
         NRF_LOG_ERROR("SPI0 write, xfer error %d, bailing out", ret);

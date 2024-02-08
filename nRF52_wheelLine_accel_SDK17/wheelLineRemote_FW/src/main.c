@@ -55,7 +55,7 @@ static void initializeInputs(void)
     // Init any input pins, ADC, etc so we have those inputs set up and polled early.
     rttTerminal_init();
 //    lis2dh_init();
-//    cc1101_init();
+    cc1101_init();
 }
 
 static void initializeOutputs(void)

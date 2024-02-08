@@ -517,7 +517,7 @@ typedef struct
     uint8_t expectedPacketLen;
     bool RSSIandLQIAppended;
     int8_t RSSI;
-    uint8_t LQI;
+    uint8_t CRCandLQI;
     packetRxState_t rxState;
 
 } packetRxSettings_t;
@@ -610,16 +610,16 @@ static bool cc1101_writeSingleByte(uint8_t address, uint8_t data)
 
 static bool cc1101_writeBurst(uint8_t startAddress, uint8_t* data, uint32_t len)
 {
-    uint8_t buf = startAddress | CC1101_WRITE_BURST;
-    ret_code_t ret = spi0_write(spi0_cc1101, &buf, 1, true);
+    startAddress |= CC1101_WRITE_BURST;
+    ret_code_t ret = spi0_write(spi0_cc1101, &startAddress, 1, true);
     ret |= spi0_write(spi0_cc1101, data, len, false);
     return ret == NRF_SUCCESS ? true : false;
 }
 
 static bool cc1101_readBurst(uint8_t startAddress, uint8_t* buffer, uint32_t len)
 {
-    uint8_t buf = startAddress | CC1101_READ_BURST;
-    ret_code_t ret = spi0_write(spi0_cc1101, &buf, 1, true);
+    startAddress |= CC1101_READ_BURST;
+    ret_code_t ret = spi0_write(spi0_cc1101, &startAddress, 1, true);
     ret |= spi0_read(spi0_cc1101, buffer, len, false);
     return ret == NRF_SUCCESS ? true : false;
 }
@@ -858,7 +858,7 @@ static void setupFeb6(void)
     cc1101_writeSingleByte(FOCCFG_REGADDR, 0x14);  //Frequency Offset Compensation Configuration
     cc1101_writeSingleByte(AGCCTRL0_REGADDR, 0x92);  //AGC Control
     cc1101_writeSingleByte(WORCTRL_REGADDR, 0xFB); //Wake On Radio Control
-    cc1101_writeSingleByte(FREND0_REGADDR, 0x11);  //Front End TX Configuration
+    cc1101_writeSingleByte(FREND0_REGADDR, 0x11);  //Front End TX Configuration: PA_PWR[2:0] index in b2:0
     cc1101_writeSingleByte(FSCAL3_REGADDR, 0xE9);  //Frequency Synthesizer Calibration
     cc1101_writeSingleByte(FSCAL2_REGADDR, 0x2A);  //Frequency Synthesizer Calibration
     cc1101_writeSingleByte(FSCAL1_REGADDR, 0x00);  //Frequency Synthesizer Calibration
@@ -866,7 +866,8 @@ static void setupFeb6(void)
     cc1101_writeSingleByte(TEST2_REGADDR, 0x81);   //Various Test Settings
     cc1101_writeSingleByte(TEST1_REGADDR, 0x35);   //Various Test Settings
     cc1101_writeSingleByte(TEST0_REGADDR, 0x09);   //Various Test Settings
-    uint8_t paTableBytes[8] = { 0x00, 0x1D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+//    uint8_t paTableBytes[8] = { 0x00, 0x1D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; // 0x1D for -15dBm
+    uint8_t paTableBytes[8] = { 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; // 0x03 for -30dBm TX power
     cc1101_writeBurst(PATABLE_REGADDR, paTableBytes, 8);
 
     NRF_LOG_WARNING("CC1101 feb 6 COMPLETE");
@@ -931,11 +932,15 @@ static void readInSettings(packetRxSettings_t* pSettings)
 }
 
 static void readLQIandRSSI(packetRxSettings_t* pSettings, uint8_t numFifoBytes)
-{
-    cc1101_readSingleByte(RXFIFO_REGADDR, &pSettings->LQI);
+{ // RSSI first, then LQI and CRC_OK
     cc1101_readSingleByte(RXFIFO_REGADDR, (uint8_t*)&pSettings->RSSI);
-    NRF_LOG_DEBUG("Read LQI %d, RSSI %d", pSettings->LQI, pSettings->RSSI);
+    cc1101_readSingleByte(RXFIFO_REGADDR, &pSettings->CRCandLQI);
     pSettings->rxState = packetRxState_finishedWithPacket;
+    NRF_LOG_DEBUG("Read RSSI %d,LQI %d, CRC %s", pSettings->RSSI, LQI_LQI_EST(pSettings->CRCandLQI),
+                  (pSettings->CRCandLQI & LQI_CRC_OK) ? "ok or disabled" : "not ok");
+//    uint8_t regByte;
+//    cc1101_readSingleByte(LQI_REGADDR, &regByte);
+//    NRF_LOG_DEBUG(" Read LQI regaddr: LQI %d.", LQI_LQI_EST(pSettings->CRCandLQI));
 }
 
 static void readPacketBytes(packetRxSettings_t* pSettings, uint8_t numFifoBytes)
@@ -946,16 +951,20 @@ static void readPacketBytes(packetRxSettings_t* pSettings, uint8_t numFifoBytes)
         cc1101_readBurst(RXFIFO_REGADDR, &pSettings->pPacket[pSettings->packetBufIndex], numFifoBytes - 1);
         pSettings->rxState = packetRxState_awaitingPacketBytes;
         pSettings->packetBufIndex += numFifoBytes - 1;
-        NRF_LOG_INFO("fixedLen read %d of expected %d bytes, try again later", pSettings->packetBufIndex,
-                     pSettings->expectedPacketLen);
+//        NRF_LOG_INFO("fixedLen read %d of expected %d bytes, try again later", pSettings->packetBufIndex,
+//                     pSettings->expectedPacketLen);
     }
     else
     { // We have the bytes we need for a full packet, read them out, report done
+        if (!numExpected)
+        {
+            NRF_LOG_ERROR("numExpected==0");
+        }
         cc1101_readBurst(RXFIFO_REGADDR, &pSettings->pPacket[pSettings->packetBufIndex], numExpected);
         numFifoBytes -= numExpected;
         pSettings->packetBufIndex += numExpected;
         pSettings->rxState = packetRxState_receivedPacketBytes;
-        NRF_LOG_INFO("Read fixed length packet of %d bytes, done.", pSettings->packetBufIndex);
+//        NRF_LOG_INFO("Read fixed length packet of %d bytes, done.", pSettings->packetBufIndex);
         if (pSettings->RSSIandLQIAppended)
         { // If we should read LQI and RSSI, try and read those
             if (2 <= numFifoBytes)
@@ -966,6 +975,10 @@ static void readPacketBytes(packetRxSettings_t* pSettings, uint8_t numFifoBytes)
             { // Wait til next poll
                 pSettings->rxState = packetRxState_awaitingRSSILQI;
             }
+        }
+        else
+        {
+            pSettings->rxState = packetRxState_finishedWithPacket;
         }
     }
 }
@@ -1004,6 +1017,12 @@ static void tryReceivePacket(packetRxSettings_t* pSettings)
     {
         readInSettings(pSettings);
     }
+    if (pSettings->packetBufIndex == pSettings->expectedPacketLen)
+    {
+        NRF_LOG_ERROR("Doesn't make sense, resetting receiver settings");
+        pSettings->rxState = packetRxState_awaitingPacketStart;
+        pSettings->packetBufIndex = 0;
+    }
     // Read RXBYTES to see if there are any bytes
     cc1101_readSingleByte(RXBYTES_REGADDR, &regByte);
     if (regByte & RXBYTES_OVERFLOW)
@@ -1021,7 +1040,7 @@ static void tryReceivePacket(packetRxSettings_t* pSettings)
         return;
     }
     // If here, we have bytes to read in RX FIFO
-    NRF_LOG_INFO("have %d bytes in RXFIFO", numFifoBytes);
+//    NRF_LOG_INFO("have %d bytes in RXFIFO", numFifoBytes);
     switch (pSettings->packetLenCfg)
     {
         case pktLen_fixed:
@@ -1042,12 +1061,17 @@ static void sendTestPacket(void)
     uint8_t bytes[TEST_PKT_LEN];
     for (uint32_t i = 0; i < TEST_PKT_LEN; i++)
     {
-        bytes[i] = (uint8_t)i;
+        bytes[i] = (uint8_t)(i + 1);
     }
     cc1101_writeBurst(TXFIFO_REGADDR, bytes, TEST_PKT_LEN);
     cc1101_readSingleByte(TXBYTES_REGADDR, bytes);
     NRF_LOG_DEBUG("Wrote %d bytes to txfifo, TXYBTES says %d", TEST_PKT_LEN, bytes[0]);
     cc1101_strobe(STROBE_STX);
+}
+
+static void parsePacket(uint8_t* pData, uint32_t len)
+{
+    NRF_LOG_DEBUG("TODO parse %d byte packet", len);
 }
 
 static void cc1101Poll(void)
@@ -1072,6 +1096,32 @@ static void cc1101Poll(void)
 //                NRF_LOG_DEBUG("Check for RX bytes")
 //                ;
                 tryReceivePacket(&m_rxSettings);
+                if (packetRxState_finishedWithPacket == m_rxSettings.rxState)
+                {
+                    if (m_rxSettings.packetBufIndex != m_rxSettings.expectedPacketLen)
+                    {
+                        NRF_LOG_WARNING("Something wrong, didn't receive expected bytes");
+                    }
+                    else
+                    { // Parse it, if it looks OK.
+                        parsePacket(m_rxSettings.pPacket, m_rxSettings.packetBufLen);
+                    }
+                    m_rxSettings.rxState = packetRxState_awaitingPacketStart;
+                    m_rxSettings.packetBufIndex = 0;
+                }
+                else
+                { // If not in finished state, check if length is equal, that would be an error
+                    if (m_rxSettings.packetBufIndex >= m_rxSettings.expectedPacketLen)
+                    {
+                        NRF_LOG_WARNING("Received %d of %d bytes, but state still %d", m_rxSettings.packetBufIndex,
+                                        m_rxSettings.expectedPacketLen,
+                                        m_rxSettings.rxState);
+                        // reset parser state
+                        m_rxSettings.rxState = packetRxState_awaitingPacketStart;
+                        m_rxSettings.packetBufIndex = 0;
+                    }
+                    // Keep waiting for packet
+                }
             break;
             case statusByteState_idle:
                 NRF_LOG_DEBUG("move from idle to RX:")

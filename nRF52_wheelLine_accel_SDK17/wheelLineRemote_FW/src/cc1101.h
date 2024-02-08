@@ -16,15 +16,9 @@ extern "C"
 {
 #endif
 
-void cc1101_resetRx();
-
-uint8_t* cc1101_tryReceiveData(uint32_t* pNumBytes);
-
 // mid level utility
 
 void cc1101_setIdle(bool flushFifos);
-bool cc1101_setTxState(void);
-bool cc1101_setRxState(void);
 
 // Higher level functions
 

@@ -109,9 +109,9 @@ extern "C" {
 #define FEATHER_GPIO15_15   15 // Also TD[2]
 #define FEATHER_GPIO7_7     7
 #define FEATHER_GPIO11_11   11
-#define FEATHER_GPIO31_31   31 // AVOID using this pin externally, used for LiPo measurement
-#define FEATHER_GPIO30_30   30 // AVOID using this pin externally, used for LiPo measurement
-#define FEATHER_GPIO27_27   27
+#define FEATHER_GPIO31_31   31 // AVOID using this pin externally, used for LiPo measurement // Button C on OLED screen
+#define FEATHER_GPIO30_30   30 // AVOID using this pin externally, used for LiPo measurement // Button B on OLED screen
+#define FEATHER_GPIO27_27   27 // Button A on OLED screen
 #define FEATHER_GPIO26_SCL  26
 #define FEATHER_GPIO25_SDA  25
 
