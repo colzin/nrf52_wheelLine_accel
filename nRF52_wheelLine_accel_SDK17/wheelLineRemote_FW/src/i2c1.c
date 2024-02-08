@@ -23,6 +23,10 @@ NRF_LOG_MODULE_REGISTER();
  *  Definitions
  ************************************************************************************/
 
+#define NO_HW_PULLUPS 1 //
+#if NO_HW_PULLUPS
+#warning "Please enable HW pullups to speed I2C up"
+#endif // #if NO_HW_PULLUPS
 #define SCANNER_POLL_ITVL_MS 0 // Define non-zero to scan every ms
 
 /*************************************************************************************
@@ -36,7 +40,11 @@ static const nrfx_twi_config_t m_twi1Cfg =
         {
           .scl = I2C1_SCL_PIN,
           .sda = I2C1_SDA_PIN,
+          #if NO_HW_PULLUPS
+          .frequency = NRF_TWI_FREQ_100K,
+#else
           .frequency = NRF_TWI_FREQ_400K,
+#endif // #if NO_HW_PULLUPS
           .hold_bus_uninit = false,
           .interrupt_priority = APP_IRQ_PRIORITY_LOWEST,
         };
@@ -96,6 +104,10 @@ ret_code_t i2c1_readByte(uint8_t devAddr, uint8_t regAddr, uint8_t* pData)
         {
             NRF_LOG_WARNING("i2c1_readByte Address 0x%x NACKed", devAddr);
         }
+        else if (NRFX_ERROR_DRV_TWI_ERR_DNACK == ret)
+        {
+            NRF_LOG_WARNING("i2c1_readByte Data byte NACKed");
+        }
         else
         {
             NRF_LOG_ERROR("i2c1_readByte Error 0x%x writing devAddr 0x%x", ret, devAddr);
@@ -119,6 +131,10 @@ ret_code_t i2c1_readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t* pData, uint
         if (NRFX_ERROR_DRV_TWI_ERR_ANACK == ret)
         {
             NRF_LOG_WARNING("i2c1_readBytes Address 0x%x NACKed", devAddr);
+        }
+        else if (NRFX_ERROR_DRV_TWI_ERR_DNACK == ret)
+        {
+            NRF_LOG_WARNING("i2c1_readBytes Data byte NACKed");
         }
         else
         {
@@ -144,9 +160,35 @@ ret_code_t i2c1_writeBytes(uint8_t devAddr, uint8_t* pByte, uint32_t len)
         {
             NRF_LOG_WARNING("i2c1_writeBytes Address 0x%x NACKed", devAddr);
         }
+        else if (NRFX_ERROR_DRV_TWI_ERR_DNACK == ret)
+        {
+            NRF_LOG_WARNING("i2c1_writeBytes Data byte 0x%x NACKed", *pByte);
+        }
         else
         {
             NRF_LOG_ERROR("i2c1_writeBytes Error 0x%x writing %d bytes to devAddr 0x%x", ret, len, devAddr);
+        }
+        return ret;
+    }
+    return ret;
+}
+
+ret_code_t i2c1_tx(uint8_t devAddr, uint8_t* pByte, uint32_t len, bool repeatedStart)
+{ // Write the address, then data bytes
+    ret_code_t ret = nrfx_twi_tx(&m_twi1, devAddr, pByte, len, repeatedStart);
+    if (NRF_SUCCESS != ret)
+    {
+        if (NRFX_ERROR_DRV_TWI_ERR_ANACK == ret)
+        {
+            NRF_LOG_WARNING("i2c1_tx Address 0x%x NACKed", devAddr);
+        }
+        else if (NRFX_ERROR_DRV_TWI_ERR_DNACK == ret)
+        {
+            NRF_LOG_WARNING("i2c1_tx Data byte 0x%x NACKed", *pByte);
+        }
+        else
+        {
+            NRF_LOG_ERROR("i2c1_tx Error 0x%x writing %d bytes to devAddr 0x%x", ret, len, devAddr);
         }
         return ret;
     }
@@ -168,9 +210,11 @@ ret_code_t i2c1_init(void)
     }
     else
     {
+#if NO_HW_PULLUPS
         // Mux pullups on the pins for the bus to work, ONLY if no HW pullup is on the lines
-//        NRF_P0->PIN_CNF[m_twi1Cfg.scl] |= (GPIO_PIN_CNF_PULL_Pullup << GPIO_PIN_CNF_PULL_Pos);
-//        NRF_P0->PIN_CNF[m_twi1Cfg.sda] |= (GPIO_PIN_CNF_PULL_Pullup << GPIO_PIN_CNF_PULL_Pos);
+        NRF_P0->PIN_CNF[m_twi1Cfg.scl] |= (GPIO_PIN_CNF_PULL_Pullup << GPIO_PIN_CNF_PULL_Pos);
+        NRF_P0->PIN_CNF[m_twi1Cfg.sda] |= (GPIO_PIN_CNF_PULL_Pullup << GPIO_PIN_CNF_PULL_Pos);
+#endif // #if NO_HW_PULLUPS
         nrfx_twi_enable(&m_twi1);
         m_twi1Enabled = true;
 #if SCANNER_POLL_ITVL_MS
