@@ -76,7 +76,7 @@ static void scanAllAddresses(void)
         }
     }
 }
-static void poll(void)
+static void i2c1Poll(void)
 {
     if (uptimeCounter_elapsedSince(m_lastPoll_ms) > SCANNER_POLL_ITVL_MS)
     {
@@ -175,7 +175,7 @@ ret_code_t i2c1_init(void)
         m_twi1Enabled = true;
 #if SCANNER_POLL_ITVL_MS
         m_lastPoll_ms = uptimeCounter_getUptimeMs();
-        pollers_registerPoller(poll);
+        pollers_registerPoller(i2c1Poll);
 #endif // #if SCANNER_POLL_ITVL_MS
     }
     return NRF_SUCCESS;

@@ -15,6 +15,7 @@
 
 #include "cc1101.h"
 #include "ev1527SPI.h"
+#include "featherOledI2C.h"
 #include "heartbeatBlink.h"
 #include "lis2dh.h"
 #include "pollers.h"
@@ -54,7 +55,7 @@ static void initializeInputs(void)
     // Init any input pins, ADC, etc so we have those inputs set up and polled early.
     rttTerminal_init();
 //    lis2dh_init();
-    cc1101_init();
+//    cc1101_init();
 }
 
 static void initializeOutputs(void)
@@ -63,6 +64,7 @@ static void initializeOutputs(void)
     heartblink_init();
 //    _4digit7seg_init();
 //    ev1527SPI_init();
+    featherOledI2C_init();
 }
 static void log_init(void)
 {

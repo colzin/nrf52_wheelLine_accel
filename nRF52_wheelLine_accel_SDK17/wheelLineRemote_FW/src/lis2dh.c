@@ -411,7 +411,7 @@ static ret_code_t setOpMode(opMode_t desiredMode)
 }
 static ret_code_t accelInit(void)
 {
-    NRF_LOG_DEBUG("Starting accel init:");
+//    NRF_LOG_DEBUG("Starting accel init:");
     uint8_t byte = 0x00;
     m_i2cAddr = LIS2DH12_I2C_ADD_H >> 1;
     ret_code_t ret = readAccelReg(WHO_AM_I_REGADDR, &byte);
@@ -642,7 +642,7 @@ static void readSamples(void)
 //    }
 }
 
-static void poll(void)
+static void lis2dh12Poll(void)
 {
     if (uptimeCounter_elapsedSince(m_lastPoll_ms) > m_desiredPollItvl_ms)
     { // Wait a while between re-inits
@@ -681,5 +681,5 @@ void lis2dh_init(void)
         return;
         // Don't poll if we don't exist
     }
-    pollers_registerPoller(poll);
+    pollers_registerPoller(lis2dh12Poll);
 }
