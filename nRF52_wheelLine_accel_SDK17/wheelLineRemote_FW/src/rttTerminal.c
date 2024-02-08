@@ -41,10 +41,10 @@ static void rttPoll(void)
             // This what it returns when there is no character on terminal, ignore, return
             return;
         break;
-        case 's':
-            NRF_LOG_WARNING("Setting RX state")
+        case 'i':
+            NRF_LOG_WARNING("Setting CC1101 to IDLE state")
             ;
-            cc1101_setRxState();
+            cc1101_setIdle(true);
         break;
         case 't':
             break;

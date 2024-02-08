@@ -61,7 +61,7 @@ static void initializeOutputs(void)
 { // outputs from our system, may make decisions based on pollers run as inputs
 // TODO Init output pin managers
     heartblink_init();
-    _4digit7seg_init();
+//    _4digit7seg_init();
 //    ev1527SPI_init();
 }
 static void log_init(void)

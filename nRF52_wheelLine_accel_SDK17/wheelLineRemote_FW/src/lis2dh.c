@@ -673,7 +673,13 @@ void lis2dh_init(void)
     m_desiredPollItvl_ms = 100;
     i2c1_init(); // Make sure bus is enabled.
 
-// Init params, set it up the way we want, if we can.
-//    accelInit();
+    // Init params, set it up the way we want, if we can.
+    ret_code_t ret = accelInit();
+    if (NRF_SUCCESS != ret)
+    {
+        NRF_LOG_ERROR("LIS2DH12 not found at address 0x%x, bailing out", m_i2cAddr);
+        return;
+        // Don't poll if we don't exist
+    }
     pollers_registerPoller(poll);
 }

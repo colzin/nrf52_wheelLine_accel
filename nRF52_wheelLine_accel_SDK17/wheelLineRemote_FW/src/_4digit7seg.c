@@ -372,7 +372,12 @@ void _4digit7seg_init(void)
 
 // turn on oscillator
     uint8_t byte = HT16K33_CMD_SYS_SETUP_OSC_ON;
-    i2c1_writeBytes(HT16K33_DEVADDR, &byte, 1);
+    ret_code_t ret = i2c1_writeBytes(HT16K33_DEVADDR, &byte, 1);
+    if (NRF_SUCCESS != ret)
+    {
+        NRF_LOG_ERROR("7seg not found at address 0x%x, bailing out", HT16K33_DEVADDR);
+        return;
+    }
 
 //    uint8_t rxByte = 0x12;
 //    ret_code_t ret = i2c1_readByte(HT16K33_DEVADDR, HT16K33_ADDR_DDAP, &rxByte);
