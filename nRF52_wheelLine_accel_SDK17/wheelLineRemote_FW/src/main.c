@@ -55,7 +55,7 @@ static void initializeInputs(void)
 
     // Init any input pins, ADC, etc so we have those inputs set up and polled early.
     rttTerminal_init();
-//    lis2dh_init();
+    lis2dh_init();
 //    cc1101_init();
 }
 
@@ -63,7 +63,7 @@ static void initializeOutputs(void)
 { // outputs from our system, may make decisions based on pollers run as inputs
 // TODO Init output pin managers
     heartblink_init();
-//    _4digit7seg_init();
+    _4digit7seg_init();
     ev1527SPI_init();
 //    sh1107I2C_init();
 }

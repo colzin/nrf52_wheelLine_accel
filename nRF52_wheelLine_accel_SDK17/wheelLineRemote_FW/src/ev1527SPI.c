@@ -10,6 +10,7 @@
 
 #if NRFX_SPI_ENABLED
 
+#include "globalInts.h"
 #include "nrfx_spi.h"
 #include "nrf_gpio.h"
 #include "pollers.h"
@@ -56,6 +57,8 @@ NRF_LOG_MODULE_REGISTER();
  * So, send for 335us, then stop for 34x that, then send the address bits.
  *
  * inter-packet delay of TODO TUNE is ok for momentary relays.
+ * So far, we are emulating the EV1527, which sends immediately back-to-back, NO delay.
+ * We have maybe 1-10ms delay, that seems to be tolerated, but keep it as small as possible for now.
  *
  */
 #define EV1527_SUB_BIT_WIDTH_US  (334)
@@ -71,23 +74,21 @@ NRF_LOG_MODULE_REGISTER();
  * 125,000/2976.19 = 42.00 bits per pulse
  * Looks like 41 bits may work, 42 should work!
  * Tested at 42 bits, got 330us pulse. Switch to 43.
- * Tested at 43 bits, got 340us pulse. TODO test and optimize
+ * Tested at 43 bits, got 340us pulse.
  * Tested at 42 bits, got 330us pulse, but actual RF was only active for 309us
  * Tested at 43 bits, RF active for 321us.
  * Tested at 45 bits, RF active for 340us, just like remote of 339us!
  */
 
-#define SPI_BITS_PER_SUB_BIT 45
+#define SPI_BITS_PER_SUB_BIT 45 // Seems to work best at SPI SCK 125kHz with cheap RF sender circuit
 
 #define SPI_TX_BYTES ((EV1527_SUB_BITS_PER_PACKET*SPI_BITS_PER_SUB_BIT)/8) // tune to be the size of an EV1527 packet.
 
-/* How long to wait between sending, to re-send. Need to keep alive
- * 1 seems to work, not longer.
- */
-#define TX_REPEAT_MS 1 // How often to keep alive the receiver
+#define TX_TEST_ITVL_MS  0//1500 // non-zero to run TX test poll, 1500ms advised
 
-#define TX_TEST_ITVL_MS 1500
+#if TX_TEST_ITVL_MS
 #define TX_TEST_NUM_REPEATS 30 // about 50 per second
+#endif // #if TX_TEST_ITVL_MS
 
 uint32_t g_iterator;
 
@@ -131,6 +132,14 @@ uint32_t g_iterator;
  * F does ch 1
  */
 
+/*
+ * For Conrad's 4-channel:
+ * it's basically 1-hot, so it does what we want.
+ *
+ */
+
+#define SPI_DONE_SENDING_BUF_INDEX (-1)
+
 /*************************************************************************************
  *  Variables
  ************************************************************************************/
@@ -144,11 +153,14 @@ static const nrfx_spi_t m_spi = NRFX_SPI_INSTANCE(2);
 // EV1527, send 20 address and 4 data bits. Send MSBit is start of address, LSBit is D3
 
 // SPI variables
-static uint8_t m_spiTxBytes[SPI_TX_BYTES];
+static uint8_t m_txBufs[2][SPI_TX_BYTES];
 static nrfx_spi_xfer_desc_t m_xfer;
-static volatile int32_t m_spiXfersRemaining;
+static int32_t m_txBufIndexToSend;
 
+#if TX_TEST_ITVL_MS
+static volatile int32_t m_numTransfersLeft;
 static uint32_t g_lastTx_ms;
+#endif // #if TX_TEST_ITVL_MS
 
 /*************************************************************************************
  *  Prototypes
@@ -163,13 +175,21 @@ static void spiIsrHandler(nrfx_spi_evt_t const* p_event, void* p_context)
     switch (p_event->type)
     {
         case NRFX_SPI_EVENT_DONE:
-            m_spiXfersRemaining--;
-            if (m_spiXfersRemaining > 0)
+            if (SPI_DONE_SENDING_BUF_INDEX == m_txBufIndexToSend)
             {
+                // Done, do nothing here.
+            }
+            else
+            {
+                if (m_txBufs[m_txBufIndexToSend] != m_xfer.p_tx_buffer)
+                { // Need to update the pointer to the desired buffer
+                    m_xfer.p_tx_buffer = m_txBufs[m_txBufIndexToSend];
+                }
+                // Start another transfer
                 ret_code_t ret = nrfx_spi_xfer(&m_spi, &m_xfer, 0);
                 if (NRF_SUCCESS != ret)
                 {
-                    NRF_LOG_ERROR("Error sending transfer %d", m_spiXfersRemaining);
+                    NRF_LOG_ERROR("Error starting transfer from ISR");
                 }
             }
         break;
@@ -227,44 +247,37 @@ static uint32_t setBits(uint32_t numBits, uint8_t* pArray, uint32_t bitIndex)
     return bitsSet;
 }
 
-static ret_code_t startTransfer(uint32_t numRepeats)
+static void setDesiredTxIdx(int32_t txBufIdx)
 {
-    if (0 != m_spiXfersRemaining)
+    // Update the desired TX buffer pointer
+    m_txBufIndexToSend = txBufIdx;
+    if (SPI_DONE_SENDING_BUF_INDEX == txBufIdx)
     {
-        NRF_LOG_ERROR("Can't send, still in progress sending a transfer");
-        return NRF_ERROR_BUSY;
+        NRF_LOG_DEBUG("Requested stop of SPI");
+        return;
     }
-    // Start the data Tx
-    m_spiXfersRemaining = numRepeats; // Loop this many times
+    // If here, we want to start or change the data Tx
     ret_code_t ret = nrfx_spi_xfer(&m_spi, &m_xfer, 0);
     switch (ret)
     {
         case NRF_SUCCESS:
-            //            NRF_LOG_INFO("EF1527 TX start")
-            //            ;
+            NRF_LOG_INFO("EF1527 TX start")
+            ;
         break;
-        case NRFX_ERROR_NOT_SUPPORTED:
-            m_spiXfersRemaining = 0; // Failed to start
-            NRF_LOG_ERROR("nrfx_spi_xfer error 0x%x", ret)
+        case NRFX_ERROR_BUSY:
+            NRF_LOG_DEBUG("SPI already running, ok")
             ;
         break;
         default:
             NRF_LOG_ERROR("nrfx_spi_xfer error 0x%x", ret)
             ;
-            m_spiXfersRemaining = 0;
         break;
     }
-    return ret;
 }
 
-static ret_code_t writeTxBuffer(uint32_t address, uint8_t _4DataBits)
+// Returns TX buffer index that we wrote to
+static int32_t writeNextTxBuffer(uint32_t address, uint8_t _4DataBits)
 {
-    if (0 != m_spiXfersRemaining)
-    {
-        NRF_LOG_ERROR("Can't write TX buffer, TX still in progress");
-        return NRF_ERROR_BUSY;
-    }
-
     /* Our remote to copy sends data bits (Left first, MSBit first):
      * 0b 0010 0000 1101 0111 0100 1110 0
      * EV1527 address is 20 bits, data is 4 bits. Should have 24 bits total.
@@ -276,13 +289,31 @@ static ret_code_t writeTxBuffer(uint32_t address, uint8_t _4DataBits)
      * So set address to 0x20D74, Data to 0xE
      */
 
-    // If here, SPI is ready. Fill with desired bits and start transfer
-    NRF_LOG_INFO("Writing addr 0x%x, data 0x%x", address, _4DataBits);
-    // Default to zeros (not transmitting)
-    memset(m_spiTxBytes, 0, sizeof(m_spiTxBytes));
+    // Choose which buffer is available
+    int32_t bufToFill = -1;
+    switch (m_txBufIndexToSend)
+    {
+        case SPI_DONE_SENDING_BUF_INDEX:
+            bufToFill = 0;
+        break;
+        case 0:
+            bufToFill = 1;
+        break;
+        case 1:
+            bufToFill = 0;
+        break;
+        default:
+            NRF_LOG_ERROR("Can't pick TX buffer index")
+            ;
+            return -1;
+        break;
+    }
+    NRF_LOG_INFO("Writing txBuf[%d] with EV1527 addr 0x%x, data 0x%x", bufToFill, address, _4DataBits);
+    // Default to zeros (not transmitting), then set bits as needed
+    memset(m_txBufs[bufToFill], 0, sizeof(m_txBufs[bufToFill]));
     // Set the preamble: 1 sub-bit high, 31 sub-bits low
     uint32_t spiBitIndex = 0;
-    spiBitIndex += setBits(SPI_BITS_PER_SUB_BIT, m_spiTxBytes, spiBitIndex);
+    spiBitIndex += setBits(SPI_BITS_PER_SUB_BIT, m_txBufs[bufToFill], spiBitIndex);
     // We have now set one sub-bit, now we need 31 low sub-bits
     spiBitIndex += (31 * SPI_BITS_PER_SUB_BIT);
     // Add 2 more to space out longer
@@ -294,12 +325,12 @@ static ret_code_t writeTxBuffer(uint32_t address, uint8_t _4DataBits)
     { // Put in 4 sub-bits for each address bit, MSBit at b31, LSBit at b0
         if ((address >> ((EV1527_ADDRESS_BITS - 1) - i)) & 0x01)
         { // Set a 1: sub-bits are 0b1110
-            spiBitIndex += setBits(3 * SPI_BITS_PER_SUB_BIT, m_spiTxBytes, spiBitIndex);
+            spiBitIndex += setBits(3 * SPI_BITS_PER_SUB_BIT, m_txBufs[bufToFill], spiBitIndex);
             spiBitIndex += (1 * SPI_BITS_PER_SUB_BIT);
         }
         else
         { // Set a zero: 0b1000
-            spiBitIndex += setBits(SPI_BITS_PER_SUB_BIT, m_spiTxBytes, spiBitIndex);
+            spiBitIndex += setBits(SPI_BITS_PER_SUB_BIT, m_txBufs[bufToFill], spiBitIndex);
             spiBitIndex += (3 * SPI_BITS_PER_SUB_BIT);
         }
     }
@@ -309,36 +340,33 @@ static ret_code_t writeTxBuffer(uint32_t address, uint8_t _4DataBits)
     { // Put in 4 sub-bits for each data bit, MSBit at b31, LSBit at b0
         if ((_4DataBits >> ((EV1527_DATA_BITS - 1) - i)) & 0x01)
         { // Set a 1: sub-bits are 0b1110
-            spiBitIndex += setBits(3 * SPI_BITS_PER_SUB_BIT, m_spiTxBytes, spiBitIndex);
+            spiBitIndex += setBits(3 * SPI_BITS_PER_SUB_BIT, m_txBufs[bufToFill], spiBitIndex);
             spiBitIndex += (1 * SPI_BITS_PER_SUB_BIT);
             NRF_LOG_DEBUG("D%d bit=1", i);
         }
         else
         { // Set a zero: 0b1000
-            spiBitIndex += setBits(SPI_BITS_PER_SUB_BIT, m_spiTxBytes, spiBitIndex);
+            spiBitIndex += setBits(SPI_BITS_PER_SUB_BIT, m_txBufs[bufToFill], spiBitIndex);
             spiBitIndex += (3 * SPI_BITS_PER_SUB_BIT);
             NRF_LOG_DEBUG("D%d bit=0", i);
         }
-
     }
-    return NRF_SUCCESS;
+    return bufToFill;
 }
 
-static void poll(void)
+#if TX_TEST_ITVL_MS
+static void txTestPoll(void)
 {
-    if (m_spiXfersRemaining)
-    {
-        g_lastTx_ms = uptimeCounter_getUptimeMs(); // Still going, update and bail out
-        return;
-    }
-
-    // If here, we are done looping, write a new set to loop
     if (uptimeCounter_elapsedSince(g_lastTx_ms) >= TX_TEST_ITVL_MS)
     {
-        ret_code_t ret = writeTxBuffer(0x020D74, (uint8_t)(g_iterator));
-        if (NRF_SUCCESS == ret)
+        int32_t idxToSend = writeTxBuffer(0x020D74, (uint8_t)(g_iterator));
+        if (-1 == idxToSend)
         {
-            ret = startTransfer(TX_TEST_NUM_REPEATS);
+            NRF_LOG_ERROR("Couldn't load a buffer, can't start sending");
+        }
+        else
+        { // Valid index, update the desired index
+            ret_code_t ret = startTransfer(TX_TEST_NUM_REPEATS);
             if (NRF_SUCCESS == ret)
             {
                 g_iterator++;
@@ -352,12 +380,70 @@ static void poll(void)
                 NRF_LOG_ERROR("startTransfer error 0x%x", ret);
             }
         }
-        else
-        {
-            NRF_LOG_ERROR("TxBuf write error 0x%x", ret);
-        }
         g_lastTx_ms = uptimeCounter_getUptimeMs();
     }
+}
+#endif // #if TX_TEST_ITVL_MS
+
+// Set the EV1527 bits based on macheine state
+#define EV1527_BIT_OPEN_KILLSWITCH  0x08
+#define EV1527_START_ENGINE         0x04
+#define EV1527_RUN_HYD_FWD          0x02
+#define EV1527_RUN_HYD_REV          0x01
+static uint8_t getBitsToSet(machineState_t stateNow)
+{
+    switch (stateNow)
+    {
+        case machState_startEngine:
+            return (EV1527_BIT_OPEN_KILLSWITCH | EV1527_START_ENGINE);
+        break;
+        case machState_runEngineHydIdle:
+            return (EV1527_BIT_OPEN_KILLSWITCH);
+        break;
+        case machState_runEngineHydFwd:
+            return (EV1527_BIT_OPEN_KILLSWITCH | EV1527_RUN_HYD_FWD);
+        break;
+        case machState_runEngineHydRev:
+            return (EV1527_BIT_OPEN_KILLSWITCH | EV1527_RUN_HYD_REV);
+        break;
+        default:
+            NRF_LOG_ERROR("Should not be in this state, don't send EV1527 at all!")
+            ;
+            return 0x00; // At least say "don't set anything". But we shouldn't be sending at all
+        break;
+    }
+}
+
+static int32_t m_lastMachineState;
+static void stateMachinePoll(void)
+{
+    machineState_t stateNow = globalInts_getMachineState();
+    if (m_lastMachineState != stateNow)
+    {
+        // Set up a new packet to send, or turn off.
+        if (machState_invalidState == stateNow
+                || machState_killEngine == stateNow
+                || machState_justPoweredOn)
+        { // Tell it to turn off sending data
+            setDesiredTxIdx(SPI_DONE_SENDING_BUF_INDEX);
+        }
+        else
+        { // Figure out what data to send
+            int32_t bufIdx = writeNextTxBuffer(0x020D74, getBitsToSet(stateNow));
+            setDesiredTxIdx(bufIdx);
+        }
+        m_lastMachineState = stateNow;
+    }
+
+}
+static void ev1527SPIpoll(void)
+{
+
+#if TX_TEST_ITVL_MS
+    txTestPoll();
+#else
+    stateMachinePoll();
+#endif // #if TX_TEST_ITVL_MS
 }
 
 void ev1527SPI_init(void)
@@ -366,14 +452,14 @@ void ev1527SPI_init(void)
 // Set up I2S to send data
 //    nrfx_spi_uninit(&m_spi);
     nrfx_spi_config_t config;
-    config.bit_order = NRF_SPI_BIT_ORDER_MSB_FIRST; // TODO test and tune
+    config.bit_order = NRF_SPI_BIT_ORDER_MSB_FIRST; // MSB first with MSBit on left will emulate an EV1527
     config.frequency = NRF_SPI_FREQ_125K;
     config.irq_priority = APP_IRQ_PRIORITY_MID;
     config.miso_pin = NRFX_SPI_PIN_NOT_USED; // unused
     config.mode = NRF_SPI_MODE_1; // Mode 1 makes MOSI idle low, which is what we need for radio
     config.mosi_pin = SPI2_MOSI_PIN; // Route to radio TX pin
     config.orc = 0x00; // Send zeros, don't turn on radio if we don't know what we are doing
-    config.sck_pin = SPI2_SCK_PIN; // TODO try and not use, but nrfx driver needs it
+    config.sck_pin = SPI2_SCK_PIN; // we don't need this pin, but nrfx driver needs it
     config.ss_pin = NRFX_SPI_PIN_NOT_USED;
     ret_code_t ret = nrfx_spi_init(&m_spi, &config, spiIsrHandler, NULL);
     if (NRF_SUCCESS != ret)
@@ -381,20 +467,22 @@ void ev1527SPI_init(void)
         NRF_LOG_ERROR("nrfx_spi_init Error 0x%x", ret);
         return;
     }
-    // Un-mux the SCK pin to lower radiation
+// Un-mux the SCK pin to lower radiation
     nrf_gpio_cfg_default(SPI2_SCK_PIN);
 
-    memset(m_spiTxBytes, 0, sizeof(m_spiTxBytes));
-    m_spiXfersRemaining = 0;
+    m_txBufIndexToSend = SPI_DONE_SENDING_BUF_INDEX;
 
     m_xfer.p_rx_buffer = NULL;
-    m_xfer.p_tx_buffer = m_spiTxBytes;
+    m_xfer.p_tx_buffer = NULL;
     m_xfer.rx_length = 0;
     m_xfer.tx_length = SPI_TX_BYTES;
 
     NRF_LOG_INFO("Init success");
-    pollers_registerPoller(poll);
+    pollers_registerPoller(ev1527SPIpoll);
+
+#if TX_TEST_ITVL_MS
     g_lastTx_ms = uptimeCounter_getUptimeMs();
+#endif // #if TX_TEST_ITVL_MS
 
 }
 #endif // #if NRFX_SPI_ENABLED

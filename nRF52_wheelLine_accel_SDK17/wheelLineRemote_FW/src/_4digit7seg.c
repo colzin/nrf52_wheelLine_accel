@@ -7,6 +7,7 @@
 
 #include "_4digit7seg.h"
 
+#include "globalInts.h"
 #include "i2c1.h"
 
 #include "version.h" // for startup print
@@ -152,19 +153,21 @@ static const uint8_t sevensegfonttable[] =
           0b00000000, // del
         };
 
-#define POLL_ITVL_MS 1500 // non-zero to poll
-#if POLL_ITVL_MS
+#define TEST_POLL_ITVL_MS 0 // 1500 // non-zero to poll
+#if TEST_POLL_ITVL_MS
 #include "pollers.h"
 #include "uptimeCounter.h"
-#endif // #if POLL_ITVL_MS
+#endif // #if TEST_POLL_ITVL_MS
 
 /*************************************************************************************
  *  Variables
  ************************************************************************************/
 
-#if POLL_ITVL_MS
+#if TEST_POLL_ITVL_MS
 static uint32_t m_lastPoll_ms;
-#endif // #if POLL_ITVL_MS
+#else
+static machineState_t m_lastMachState;
+#endif // #if TEST_POLL_ITVL_MS
 
 /*************************************************************************************
  *  Prototypes
@@ -326,11 +329,11 @@ void _4digit7seg_writeStr(const char* buffer, uint8_t size)
     writeDisplay();
 }
 
-#if POLL_ITVL_MS
+#if TEST_POLL_ITVL_MS
 static uint32_t m_printerState;
-static void poll(void)
+static void testPoll(void)
 {
-    if (uptimeCounter_elapsedSince(m_lastPoll_ms) > POLL_ITVL_MS)
+    if (uptimeCounter_elapsedSince(m_lastPoll_ms) > TEST_POLL_ITVL_MS)
     {
 ////        _4digit7seg_setBrightness((uint8_t)((m_lastPoll_ms / 1000) % 15));
 //        NRF_LOG_DEBUG("Set brightness to %d", (m_lastPoll_ms / 1000) % 15);
@@ -340,7 +343,7 @@ static void poll(void)
         switch (m_printerState)
         {
             case 1:
-                _4digit7seg_writeStr("rt12", 5);
+                _4digit7seg_writeStr("off", 3);
             break;
             case 2:
                 _4digit7seg_writeStr("RT 3", 5);
@@ -364,7 +367,23 @@ static void poll(void)
         m_lastPoll_ms = uptimeCounter_getUptimeMs();
     }
 }
-#endif // #if POLL_ITVL_MS
+
+#else
+static void machineStatePoll(void)
+{
+
+}
+#endif // #if TEST_POLL_ITVL_MS
+
+static void poll(void)
+{
+#if TEST_POLL_ITVL_MS
+    testPoll();
+#else
+
+#endif // #if TEST_POLL_ITVL_MS
+
+}
 
 void _4digit7seg_init(void)
 {
@@ -415,8 +434,8 @@ void _4digit7seg_init(void)
 
 #if POLL_ITVL_MS
     m_lastPoll_ms = uptimeCounter_getUptimeMs();
-    pollers_registerPoller(poll);
 #endif // #if POLL_ITVL_MS
 
+    pollers_registerPoller(poll);
 }
 
