@@ -23,7 +23,7 @@ NRF_LOG_MODULE_REGISTER();
  *  Definitions
  ************************************************************************************/
 
-#define NO_HW_PULLUPS 1 //
+#define NO_HW_PULLUPS 0 //
 #if NO_HW_PULLUPS
 #warning "Please enable HW pullups to speed I2C up"
 #endif // #if NO_HW_PULLUPS
@@ -193,6 +193,16 @@ ret_code_t i2c1_tx(uint8_t devAddr, uint8_t* pByte, uint32_t len, bool repeatedS
         return ret;
     }
     return ret;
+}
+
+ret_code_t i2c1_rx(uint8_t devAddr, uint8_t* pData, uint32_t len)
+{
+    ret_code_t ret = nrfx_twi_rx(&m_twi1, devAddr, pData, len);
+    if (NRF_SUCCESS != ret)
+    {
+        NRF_LOG_ERROR("i2c1_rx Error 0x%x reading byte", ret);
+        return ret;
+    }
 }
 
 ret_code_t i2c1_init(void)

@@ -86,8 +86,8 @@ NRF_LOG_MODULE_REGISTER();
  */
 #define TX_REPEAT_MS 1 // How often to keep alive the receiver
 
-#define TX_TEST_ITVL_MS 1
-#define TX_TEST_NUM_REPEATS 50
+#define TX_TEST_ITVL_MS 1500
+#define TX_TEST_NUM_REPEATS 30 // about 50 per second
 
 uint32_t g_iterator;
 
@@ -146,8 +146,7 @@ static const nrfx_spi_t m_spi = NRFX_SPI_INSTANCE(2);
 // SPI variables
 static uint8_t m_spiTxBytes[SPI_TX_BYTES];
 static nrfx_spi_xfer_desc_t m_xfer;
-static volatile bool m_spiXferDone;
-static uint32_t m_spiTransfesRemaining;
+static volatile int32_t m_spiXfersRemaining;
 
 static uint32_t g_lastTx_ms;
 
@@ -164,7 +163,15 @@ static void spiIsrHandler(nrfx_spi_evt_t const* p_event, void* p_context)
     switch (p_event->type)
     {
         case NRFX_SPI_EVENT_DONE:
-            m_spiXferDone = true;
+            m_spiXfersRemaining--;
+            if (m_spiXfersRemaining > 0)
+            {
+                ret_code_t ret = nrfx_spi_xfer(&m_spi, &m_xfer, 0);
+                if (NRF_SUCCESS != ret)
+                {
+                    NRF_LOG_ERROR("Error sending transfer %d", m_spiXfersRemaining);
+                }
+            }
         break;
         default:
             NRF_LOG_WARNING("SPI event %d not handled", p_event->type)
@@ -220,15 +227,15 @@ static uint32_t setBits(uint32_t numBits, uint8_t* pArray, uint32_t bitIndex)
     return bitsSet;
 }
 
-static ret_code_t startTransfer(void)
+static ret_code_t startTransfer(uint32_t numRepeats)
 {
-    if (!m_spiXferDone)
+    if (0 != m_spiXfersRemaining)
     {
         NRF_LOG_ERROR("Can't send, still in progress sending a transfer");
         return NRF_ERROR_BUSY;
     }
     // Start the data Tx
-    m_spiXferDone = false;
+    m_spiXfersRemaining = numRepeats; // Loop this many times
     ret_code_t ret = nrfx_spi_xfer(&m_spi, &m_xfer, 0);
     switch (ret)
     {
@@ -237,14 +244,14 @@ static ret_code_t startTransfer(void)
             //            ;
         break;
         case NRFX_ERROR_NOT_SUPPORTED:
-            m_spiXferDone = true; // Failed to start
+            m_spiXfersRemaining = 0; // Failed to start
             NRF_LOG_ERROR("nrfx_spi_xfer error 0x%x", ret)
             ;
         break;
         default:
             NRF_LOG_ERROR("nrfx_spi_xfer error 0x%x", ret)
             ;
-            m_spiXferDone = true;
+            m_spiXfersRemaining = 0;
         break;
     }
     return ret;
@@ -252,7 +259,7 @@ static ret_code_t startTransfer(void)
 
 static ret_code_t writeTxBuffer(uint32_t address, uint8_t _4DataBits)
 {
-    if (!m_spiXferDone)
+    if (0 != m_spiXfersRemaining)
     {
         NRF_LOG_ERROR("Can't write TX buffer, TX still in progress");
         return NRF_ERROR_BUSY;
@@ -319,36 +326,35 @@ static ret_code_t writeTxBuffer(uint32_t address, uint8_t _4DataBits)
 
 static void poll(void)
 {
-    if (!m_spiXferDone)
+    if (m_spiXfersRemaining)
     {
-        g_lastTx_ms = uptimeCounter_getUptimeMs(); // Still going, update
+        g_lastTx_ms = uptimeCounter_getUptimeMs(); // Still going, update and bail out
         return;
     }
-    // If here, Transfer is done
-    if (m_spiTransfesRemaining)
-    {
-        if (m_spiXferDone && uptimeCounter_elapsedSince(g_lastTx_ms) >= TX_REPEAT_MS)
-        {
-            startTransfer();
-            m_spiTransfesRemaining--;
-        }
-        return;
-    }
+
     // If here, we are done looping, write a new set to loop
     if (uptimeCounter_elapsedSince(g_lastTx_ms) >= TX_TEST_ITVL_MS)
     {
-        ret_code_t ret = writeTxBuffer(0x020D74, (uint8_t)(g_iterator++));
-        if (g_iterator > 0xF)
+        ret_code_t ret = writeTxBuffer(0x020D74, (uint8_t)(g_iterator));
+        if (NRF_SUCCESS == ret)
         {
-            g_iterator = 0;
-        }
-        if (NRF_SUCCESS != ret)
-        {
-            NRF_LOG_ERROR("Tx write error 0x%x", ret);
+            ret = startTransfer(TX_TEST_NUM_REPEATS);
+            if (NRF_SUCCESS == ret)
+            {
+                g_iterator++;
+                if (g_iterator > 0xF)
+                {
+                    g_iterator = 0;
+                }
+            }
+            if (NRF_SUCCESS != ret)
+            {
+                NRF_LOG_ERROR("startTransfer error 0x%x", ret);
+            }
         }
         else
         {
-            m_spiTransfesRemaining = TX_TEST_NUM_REPEATS; // Loop this many times
+            NRF_LOG_ERROR("TxBuf write error 0x%x", ret);
         }
         g_lastTx_ms = uptimeCounter_getUptimeMs();
     }
@@ -379,7 +385,7 @@ void ev1527SPI_init(void)
     nrf_gpio_cfg_default(SPI2_SCK_PIN);
 
     memset(m_spiTxBytes, 0, sizeof(m_spiTxBytes));
-    m_spiXferDone = true;
+    m_spiXfersRemaining = 0;
 
     m_xfer.p_rx_buffer = NULL;
     m_xfer.p_tx_buffer = m_spiTxBytes;

@@ -64,8 +64,8 @@ static void initializeOutputs(void)
 // TODO Init output pin managers
     heartblink_init();
 //    _4digit7seg_init();
-//    ev1527SPI_init();
-    sh1107I2C_init();
+    ev1527SPI_init();
+//    sh1107I2C_init();
 }
 static void log_init(void)
 {
