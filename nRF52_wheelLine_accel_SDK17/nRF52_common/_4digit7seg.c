@@ -381,16 +381,16 @@ static void machineStatePoll(void)
                 _4digit7seg_writeStr("P ON", 4);
             break;
             case machState_startEngine:
-                _4digit7seg_writeStr("ST E", 3);
+                _4digit7seg_writeStr("STRT", 4);
             break;
             case machState_runEngineHydIdle:
-                _4digit7seg_writeStr("R I", 3);
+                _4digit7seg_writeStr("IdLE", 4);
             break;
             case machState_runEngineHydFwd:
-                _4digit7seg_writeStr("R F", 3);
+                _4digit7seg_writeStr("FVVD", 4);
             break;
             case machState_runEngineHydRev:
-                _4digit7seg_writeStr("R R", 3);
+                _4digit7seg_writeStr("REV", 3);
             break;
             case machState_killEngine:
                 _4digit7seg_writeStr("kill", 4);
