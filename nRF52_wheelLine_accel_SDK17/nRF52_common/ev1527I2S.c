@@ -147,8 +147,8 @@ static void setupRadioOutputs(void)
     // LEDs are active low, but radio is active high
     NRF_P0->OUTSET = (1UL << ISR_DEBUG_GPIO);
     nrf_gpio_cfg_output(ISR_DEBUG_GPIO);
-//    NRF_P0->OUTCLR = (1UL << RADIO_TX_GPIO);
-//    nrf_gpio_cfg_output(RADIO_TX_GPIO);
+//    NRF_P0->OUTCLR = (1UL << EV1527_RADIO_TX_PIN);
+//    nrf_gpio_cfg_output(EV1527_RADIO_TX_PIN);
 }
 
 static ret_code_t startTransfer(uint32_t address, uint8_t _4DataBits)

@@ -29,17 +29,20 @@ typedef enum
     statusByteState_settling,
     statusByteState_rxOverflow,
     statusByteState_txUnderflow,
-}chipStatusByteState_t;
+} chipStatusByteState_t;
 
 /*************************************************************************************
-* Functions
-************************************************************************************/
+ * Functions
+ ************************************************************************************/
 chipStatusByteState_t cc1101_getLastState(void);
 
 // Low-level functions.
 void cc1101_setIdle(bool flushFifos);
 
 bool cc1101_sendPacket(uint8_t* pBytes, uint8_t len);
+
+// Call this AFTER calling init, which sets it to idle
+void cc1101_setDesiredState(chipStatusByteState_t desiredState);
 
 void cc1101_init(void);
 

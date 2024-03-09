@@ -69,6 +69,8 @@ static void initializeOutputs(void)
     _4digit7seg_init();
 //    ev1527SPI_init();
     sh1107I2C_init();
+    relayGpios_init();
+
 }
 static void log_init(void)
 {

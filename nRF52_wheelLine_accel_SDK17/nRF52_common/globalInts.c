@@ -45,6 +45,10 @@ void globalInts_setMachineState(machineState_t st)
 {
     if (st <= machState_killEngine)
     {
+        if (st != m_machState)
+        {
+            NRF_LOG_INFO("Machine state from %d to %d", m_machState, st);
+        }
         m_machState = st;
     }
     else

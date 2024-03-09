@@ -7,6 +7,8 @@
 
 #include "cc1101.h"
 
+#include "globalInts.h" // To set machine state
+
 #include "nrf_gpio.h"
 #include "nrf_delay.h"
 #include "pollers.h"
@@ -520,7 +522,8 @@ static uint32_t m_lastTx_ms;
 #endif // #if TX_TEST_ITVL_MS
 
 static chipStatusByteState_t m_lastReadStatusByteState;
-static uint32_t m_inTx_ms;
+static chipStatusByteState_t m_desiredState;
+static uint32_t m_inState_ms;
 static uint32_t m_lastPoll_ms;
 
 // For receiving packets
@@ -932,6 +935,19 @@ static void setupFeb6(void)
  TEST0    |0x002E|0x09|Various Test Settings
  */
 
+static void parsePacket(uint8_t* pData, uint32_t len)
+{
+    NRF_LOG_DEBUG("RX %d-byte packet", len);
+    if (1 == len)
+    {
+        globalInts_setMachineState((machineState_t)(pData[0]));
+    }
+    else
+    {
+        NRF_LOG_DEBUG("TODO parse %d byte packet", len);
+    }
+}
+
 static void readInSettings(packetRxSettings_t* pSettings)
 {
     uint8_t regByte;
@@ -981,8 +997,8 @@ static void readPacketBytes(packetRxSettings_t* pSettings, uint8_t numFifoBytes)
         cc1101_readBurst(RXFIFO_REGADDR, &pSettings->pPacket[pSettings->packetBufIndex], numFifoBytes - 1);
         pSettings->rxState = packetRxState_awaitingPacketBytes;
         pSettings->packetBufIndex += numFifoBytes - 1;
-//        NRF_LOG_INFO("fixedLen read %d of expected %d bytes, try again later", pSettings->packetBufIndex,
-//                     pSettings->expectedPacketLen);
+        NRF_LOG_INFO("fixedLen read %d of expected %d bytes, try again later", pSettings->packetBufIndex,
+                     pSettings->expectedPacketLen);
     }
     else
     { // We have the bytes we need for a full packet, read them out, report done
@@ -1041,6 +1057,7 @@ static void tryReceivePacket(packetRxSettings_t* pSettings)
     uint8_t regByte;
     if (NULL == pSettings)
     {
+        NRF_LOG_ERROR("NULL pSettings");
         return;
     }
     if (pSettings->readFromChip)
@@ -1067,6 +1084,7 @@ static void tryReceivePacket(packetRxSettings_t* pSettings)
     uint8_t numFifoBytes = RXBYTES_NUM(regByte);
     if (!numFifoBytes)
     { // No bytes to read
+//        NRF_LOG_DEBUG("0 RXbytes");
         return;
     }
     // If here, we have bytes to read in RX FIFO
@@ -1077,6 +1095,8 @@ static void tryReceivePacket(packetRxSettings_t* pSettings)
             readPacketBytes(pSettings, numFifoBytes);
         break;
         case pktLen_variable:
+            NRF_LOG_WARNING("WHY are we in readVariablePacket?")
+            ;
             readVariablePacket(pSettings, numFifoBytes);
         break;
         default:
@@ -1084,11 +1104,37 @@ static void tryReceivePacket(packetRxSettings_t* pSettings)
             ;
         break;
     }
-}
-
-static void parsePacket(uint8_t* pData, uint32_t len)
-{
-    NRF_LOG_DEBUG("TODO parse %d byte packet", len);
+    // Try and parse it
+    if (packetRxState_finishedWithPacket == m_rxSettings.rxState)
+    {
+        if (m_rxSettings.packetBufIndex != m_rxSettings.expectedPacketLen)
+        {
+            NRF_LOG_WARNING("Something wrong, didn't receive expected bytes, flush and idle");
+        }
+        else
+        { // Parse it, if it looks OK.
+            parsePacket(m_rxSettings.pPacket, m_rxSettings.packetBufLen);
+        }
+        cc1101_setIdle(true);
+        m_rxSettings.rxState = packetRxState_awaitingPacketStart;
+        m_rxSettings.packetBufIndex = 0;
+    }
+    else
+    { // If not in finished state, check if length is equal, that would be an error
+        if (m_rxSettings.packetBufIndex >= m_rxSettings.expectedPacketLen)
+        {
+            NRF_LOG_WARNING("Received %d of %d bytes, but state still %d, reset parser", m_rxSettings.packetBufIndex,
+                            m_rxSettings.expectedPacketLen,
+                            m_rxSettings.rxState);
+            // reset parser state
+            m_rxSettings.rxState = packetRxState_awaitingPacketStart;
+            m_rxSettings.packetBufIndex = 0;
+        }
+        else
+        {
+            // Keep waiting for packet, TODO timeout?
+        }
+    }
 }
 
 static void cc1101Poll(void)
@@ -1101,59 +1147,56 @@ static void cc1101Poll(void)
     cc1101_strobe(STROBE_NOP); // Strobe NOP to get status
     // See if state has changed
     chipStatusByteState_t currentState = CHIPSTATUSBYTE_STATE(m_lastChipStatusByte);
+    if (currentState != m_lastReadStatusByteState)
+    {
+        m_inState_ms = 0;
+    }
+    else
+    { // If in state, increment timer
+        m_inState_ms += uptimeCounter_elapsedSince(m_lastPoll_ms);
+    }
     switch (currentState)
     {
         case statusByteState_tx:
-            if (statusByteState_tx != m_lastReadStatusByteState)
+            if (m_inState_ms >= 1000)
             {
-                m_inTx_ms = 0;
-            }
-            else
-            { // If in TX state, increment timer
-                m_inTx_ms += uptimeCounter_elapsedSince(m_lastPoll_ms);
-            }
-            if (m_inTx_ms >= 1000)
-            {
-                NRF_LOG_WARNING("timed out in TX, switch to RX");
-                cc1101_strobe(STROBE_SRX);
+                NRF_LOG_ERROR("Timed out in TX state, should NOT be here. Flushing and idling")
+                ;
+                cc1101_setIdle(true);
             }
         break;
         case statusByteState_rx:
-            // If in receiving state
-//                NRF_LOG_DEBUG("Check for RX bytes")
-//                ;
-            tryReceivePacket(&m_rxSettings);
-            if (packetRxState_finishedWithPacket == m_rxSettings.rxState)
+            if (statusByteState_rx != m_lastReadStatusByteState)
             {
-                if (m_rxSettings.packetBufIndex != m_rxSettings.expectedPacketLen)
-                {
-                    NRF_LOG_WARNING("Something wrong, didn't receive expected bytes");
-                }
-                else
-                { // Parse it, if it looks OK.
-                    parsePacket(m_rxSettings.pPacket, m_rxSettings.packetBufLen);
-                }
+                m_inState_ms = 0;
+            }
+            // If in receiving state
+//            NRF_LOG_DEBUG("RX Check for Received")
+//            ;
+//            tryReceivePacket(&m_rxSettings);
+            // It should transition to IDLE when done receiving a packet
+            if (m_inState_ms >= 1000)
+            {
+                NRF_LOG_ERROR("Timed out in RX state, should NOT be here. Flushing and idling")
+                ;
+                cc1101_setIdle(true);
                 m_rxSettings.rxState = packetRxState_awaitingPacketStart;
                 m_rxSettings.packetBufIndex = 0;
             }
-            else
-            { // If not in finished state, check if length is equal, that would be an error
-                if (m_rxSettings.packetBufIndex >= m_rxSettings.expectedPacketLen)
-                {
-                    NRF_LOG_WARNING("Received %d of %d bytes, but state still %d", m_rxSettings.packetBufIndex,
-                                    m_rxSettings.expectedPacketLen,
-                                    m_rxSettings.rxState);
-                    // reset parser state
-                    m_rxSettings.rxState = packetRxState_awaitingPacketStart;
-                    m_rxSettings.packetBufIndex = 0;
-                }
-                // Keep waiting for packet
-            }
         break;
         case statusByteState_idle:
-            //                NRF_LOG_DEBUG("move from idle to RX:")
-//                ;
-//                cc1101_strobe(STROBE_SRX);
+            //Try to receive one last time
+//            NRF_LOG_DEBUG("Idle Check for Received")
+//            ;
+            tryReceivePacket(&m_rxSettings);
+            if (statusByteState_rx == m_desiredState)
+            {
+                NRF_LOG_DEBUG("move from idle to RX:")
+                ;
+                cc1101_strobe(STROBE_FLUSHRXFIFO); // Can flush in idle
+                cc1101_strobe(STROBE_FLUSHTXFIFO); // Can flush in idle
+                cc1101_strobe(STROBE_SRX);
+            }
         break;
         case statusByteState_rxOverflow:
             NRF_LOG_ERROR("Detected RX overflow, flushing and idling")
@@ -1168,6 +1211,8 @@ static void cc1101Poll(void)
         default:
             NRF_LOG_WARNING("State 0x%x", CHIPSTATUSBYTE_STATE(m_lastChipStatusByte))
             ;
+            NRF_LOG_ERROR("Flushing and idling")
+            cc1101_setIdle(true);
         break;
     }
     m_lastReadStatusByteState = currentState;
@@ -1216,6 +1261,23 @@ bool cc1101_sendPacket(uint8_t* pBytes, uint8_t len)
     return ret;
 }
 
+void cc1101_setDesiredState(chipStatusByteState_t desiredState)
+{
+    if (statusByteState_idle == desiredState)
+    {        // OK, set that
+        m_desiredState = desiredState;
+    }
+    else if (statusByteState_rx == desiredState)
+    {        // OK, set that
+        m_desiredState = desiredState;
+    }
+    else
+    {        // Don't allow setting to that, set to idle
+        NRF_LOG_ERROR("We don't allow this, setting to idle");
+        m_desiredState = statusByteState_idle;
+    }
+}
+
 void cc1101_init(void)
 {
     spi0_init(); // Make sure pins are muxed and working
@@ -1242,7 +1304,8 @@ void cc1101_init(void)
     m_rxSettings.packetBufLen = sizeof(m_rxPacketBuffer);
     m_rxSettings.rxState = packetRxState_awaitingPacketStart;
 
+    m_desiredState = statusByteState_idle; // Set to the current state
+
     pollers_registerPoller(cc1101Poll);
-// Start by going to idle
-    cc1101_setIdle(true);
 }
+

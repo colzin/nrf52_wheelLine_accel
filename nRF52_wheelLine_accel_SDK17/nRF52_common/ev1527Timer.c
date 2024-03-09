@@ -116,18 +116,18 @@ static void handleTxTimeout(void)
     {
         case evSend_inactive:
             // If called when done, turn off and stop timer.
-            NRF_P0->OUTCLR = (1UL << RADIO_TX_GPIO);
+            NRF_P0->OUTCLR = (1UL << EV1527_RADIO_TX_PIN);
             // disarm timer, stop.
             nrfx_timer_disable(&m_timer1);
         break;
         case evSend_sendingPreamble:
             if (0 == g_bitSubIdx)
             { // Set high for 1 sub-bit, then low for 34
-                NRF_P0->OUTSET = (1UL << RADIO_TX_GPIO);
+                NRF_P0->OUTSET = (1UL << EV1527_RADIO_TX_PIN);
             }
             else
             {
-                NRF_P0->OUTCLR = (1UL << RADIO_TX_GPIO);
+                NRF_P0->OUTCLR = (1UL << EV1527_RADIO_TX_PIN);
             }
             g_bitSubIdx++;
             if (g_bitSubIdx >= 34)
@@ -142,11 +142,11 @@ static void handleTxTimeout(void)
             // Here we are done with the preamble, start sending the address bits.
             if (g_nextSubBitVal)
             {
-                NRF_P0->OUTSET = (1UL << RADIO_TX_GPIO);
+                NRF_P0->OUTSET = (1UL << EV1527_RADIO_TX_PIN);
             }
             else
             {
-                NRF_P0->OUTCLR = (1UL << RADIO_TX_GPIO);
+                NRF_P0->OUTCLR = (1UL << EV1527_RADIO_TX_PIN);
             }
             // figure out what the next sub-bit will be
             g_bitSubIdx++;
@@ -172,11 +172,11 @@ static void handleTxTimeout(void)
             // Here we are sending data bits
             if (g_nextSubBitVal)
             {
-                NRF_P0->OUTSET = (1UL << RADIO_TX_GPIO);
+                NRF_P0->OUTSET = (1UL << EV1527_RADIO_TX_PIN);
             }
             else
             {
-                NRF_P0->OUTCLR = (1UL << RADIO_TX_GPIO);
+                NRF_P0->OUTCLR = (1UL << EV1527_RADIO_TX_PIN);
             }
             // figure out what the next sub-bit will be
             g_bitSubIdx++;
@@ -232,8 +232,8 @@ static void setupRadioOutputs(void)
     // LEDs are active low, but radio is active high
     NRF_P0->OUTSET = (1UL << ISR_DEBUG_GPIO);
     nrf_gpio_cfg_output(ISR_DEBUG_GPIO);
-    NRF_P0->OUTCLR = (1UL << RADIO_TX_GPIO);
-    nrf_gpio_cfg_output(RADIO_TX_GPIO);
+    NRF_P0->OUTCLR = (1UL << EV1527_RADIO_TX_PIN);
+    nrf_gpio_cfg_output(EV1527_RADIO_TX_PIN);
 }
 
 #define TX_ITVL_MS 1500

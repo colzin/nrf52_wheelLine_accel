@@ -456,7 +456,7 @@ void _4digit7seg_init(void)
 
     _4digit7seg_setDisplayState(dispState_onSolid);
 
-    _4digit7seg_setBrightness(0); // 0 is still on
+    _4digit7seg_setBrightness(10); // 0 is still on
 
 #if POLL_ITVL_MS
     m_lastPoll_ms = uptimeCounter_getUptimeMs();

@@ -19,6 +19,7 @@
 #include "heartbeatBlink.h"
 #include "lis2dh.h"
 #include "pollers.h"
+#include "relayGpios.h"
 #include "rttTerminal.h"
 #include "sh1107I2C.h"
 #include <stdint.h>
@@ -56,7 +57,7 @@ static void initializeInputs(void)
     // Init any input pins, ADC, etc so we have those inputs set up and polled early.
     rttTerminal_init();
     lis2dh_init();
-//    cc1101_init();
+    cc1101_init();
 }
 
 static void initializeOutputs(void)
@@ -64,8 +65,8 @@ static void initializeOutputs(void)
 // TODO Init output pin managers
     heartblink_init();
     _4digit7seg_init();
-    ev1527SPI_init();
-//    sh1107I2C_init();
+    sh1107I2C_init();
+    relayGpios_init(); // Outputs to relays
 }
 static void log_init(void)
 {
@@ -99,6 +100,8 @@ int main(void)
     bleStuff_init();
     bleStuff_printBLEVersion();
 #endif // #if NRF_SDH_ENABLED && RUN_BLE
+
+    cc1101_setDesiredState(statusByteState_rx); // Receive by default, since we need to listen
 
     uint32_t lastPoll_ms = uptimeCounter_getUptimeMs();
     uint32_t ms_now;
