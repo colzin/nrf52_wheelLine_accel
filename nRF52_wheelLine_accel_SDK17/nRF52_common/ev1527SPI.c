@@ -421,9 +421,7 @@ static void stateMachinePoll(void)
     if (m_lastMachineState != stateNow)
     {
         // Set up a new packet to send, or turn off.
-        if (machState_invalidState == stateNow
-                || machState_killEngine == stateNow
-                || machState_justPoweredOn)
+        if (machState_killEngine == stateNow || machState_justPoweredOn)
         { // Tell it to turn off sending data
             setDesiredTxIdx(SPI_DONE_SENDING_BUF_INDEX);
         }
