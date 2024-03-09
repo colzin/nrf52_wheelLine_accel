@@ -43,13 +43,13 @@ machineState_t globalInts_getMachineState(void)
 }
 void globalInts_setMachineState(machineState_t st)
 {
-    if (st < machState_killEngine)
+    if (st <= machState_killEngine)
     {
         m_machState = st;
     }
     else
     {
-        NRF_LOG_ERROR("Tried to set invalid state %d, setting to kill engine");
+        NRF_LOG_ERROR("Tried to set invalid state %d, setting to kill engine", st);
         m_machState = machState_killEngine;
     }
 

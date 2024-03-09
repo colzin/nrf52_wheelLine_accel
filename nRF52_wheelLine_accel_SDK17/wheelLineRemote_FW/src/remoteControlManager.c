@@ -35,7 +35,7 @@ static machineState_t m_lastState;
 
 static void runEnginePoll(machineState_t desiredState)
 {
-    if (desiredState != m_lastState || uptimeCounter_elapsedSince(m_lastTx_ms) >= TX_ITVL_MS)
+    if (uptimeCounter_elapsedSince(m_lastTx_ms) >= TX_ITVL_MS)
     {
         // Send run command, solenoids to neutral
         uint8_t byteToSend = (uint8_t)desiredState;
@@ -89,6 +89,5 @@ static void rmtCtlPoll(void)
 
 void remoteControlManager_init()
 {
-    globalInts_setMachineState(machState_killEngine); // No sending in this state
     pollers_registerPoller(rmtCtlPoll);
 }

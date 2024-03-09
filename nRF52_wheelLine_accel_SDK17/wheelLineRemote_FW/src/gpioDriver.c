@@ -26,7 +26,6 @@ NRF_LOG_MODULE_REGISTER();
  *  Variables
  ************************************************************************************/
 
-static machineState_t m_lastState;
 /*************************************************************************************
  *  Prototypes
  ************************************************************************************/
@@ -51,6 +50,7 @@ static void gpioDriverPoll(void)
     switch (currentState)
     {
         case machState_justPoweredOn:
+            case machState_killEngine:
             if (isPressed(BUTTON_START_PIN))
             {
                 NRF_LOG_INFO("Moving to START state");
@@ -108,6 +108,7 @@ void gpioDriver_init(void)
     nrf_gpio_cfg(BUTTON_REV_PIN, NRF_GPIO_PIN_DIR_INPUT, NRF_GPIO_PIN_INPUT_CONNECT, NRF_GPIO_PIN_PULLUP,
                  NRF_GPIO_PIN_S0D1,
                  NRF_GPIO_PIN_NOSENSE);
-
+    // Set initial machine state
+    globalInts_setMachineState(machState_justPoweredOn);
     pollers_registerPoller(gpioDriverPoll);
 }

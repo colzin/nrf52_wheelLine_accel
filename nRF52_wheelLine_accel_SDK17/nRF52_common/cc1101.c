@@ -484,7 +484,7 @@ typedef enum
 #error "Define packet size or type"
 #endif // #if PKT_SIZE_FIXED
 
-#define RX_POLL_ITVL_MS 500 // Datasheet says not to spam SPI with traffic
+#define STATUS_POLL_ITVL_MS 100 // Datasheet says not to spam SPI with traffic
 
 typedef enum
 {
@@ -519,7 +519,9 @@ static uint8_t m_lastChipStatusByte;
 static uint32_t m_lastTx_ms;
 #endif // #if TX_TEST_ITVL_MS
 
-static uint32_t m_lastRxPoll_ms;
+static chipStatusByteState_t m_lastReadStatusByteState;
+static uint32_t m_inTx_ms;
+static uint32_t m_lastPoll_ms;
 
 // For receiving packets
 static uint8_t m_rxPacketBuffer[PKT_LEN];
@@ -600,6 +602,7 @@ static bool cc1101_writeSingleByte(uint8_t address, uint8_t data)
     return ret == NRF_SUCCESS ? true : false;
 }
 
+#if 1
 static bool cc1101_writeBurst(uint8_t startAddress, uint8_t* data, uint32_t len)
 {
     startAddress |= CC1101_WRITE_BURST;
@@ -614,7 +617,17 @@ static bool cc1101_writeBurst(uint8_t startAddress, uint8_t* data, uint32_t len)
     ret |= spi0_write(spi0_cc1101, data, len, false);
     return ret == NRF_SUCCESS ? true : false;
 }
+#else
+static bool cc1101_writeBurst(uint8_t startAddress, uint8_t* data, uint32_t len)
+{
+    startAddress |= CC1101_WRITE_BURST;
+    ret_code_t ret = spi0_write(spi0_cc1101, &startAddress, 1, true);
+    ret |= spi0_write(spi0_cc1101, data, len, false);
+    return ret == NRF_SUCCESS ? true : false;
+}
+#endif //1
 
+#if 1
 static bool cc1101_readBurst(uint8_t startAddress, uint8_t* buffer, uint32_t len)
 {
     startAddress |= CC1101_READ_BURST;
@@ -629,6 +642,17 @@ static bool cc1101_readBurst(uint8_t startAddress, uint8_t* buffer, uint32_t len
     ret |= spi0_read(spi0_cc1101, buffer, len, false);
     return ret == NRF_SUCCESS ? true : false;
 }
+#else //
+
+static bool cc1101_readBurst(uint8_t startAddress, uint8_t* buffer, uint32_t len)
+{
+    startAddress |= CC1101_READ_BURST;
+    ret_code_t ret = spi0_write(spi0_cc1101, &startAddress, 1, true);
+    ret |= spi0_read(spi0_cc1101, buffer, len, false);
+    return ret == NRF_SUCCESS ? true : false;
+}
+
+#endif // 1
 
 static bool cc1101_reboot(void)
 {
@@ -1069,88 +1093,98 @@ static void parsePacket(uint8_t* pData, uint32_t len)
 
 static void cc1101Poll(void)
 {
-    if (uptimeCounter_elapsedSince(m_lastRxPoll_ms) >= RX_POLL_ITVL_MS)
+    if (uptimeCounter_elapsedSince(m_lastPoll_ms) < STATUS_POLL_ITVL_MS)
+    { // Don't spam SPI bus, especially when RXing
+        return;
+    }
+    // If here, we have expired the timer and can ask it what's up.
+    cc1101_strobe(STROBE_NOP); // Strobe NOP to get status
+    // See if state has changed
+    chipStatusByteState_t currentState = CHIPSTATUSBYTE_STATE(m_lastChipStatusByte);
+    switch (currentState)
     {
-        cc1101_strobe(STROBE_NOP);
-        switch (CHIPSTATUSBYTE_STATE(m_lastChipStatusByte))
-        {
-            case statusByteState_tx:
-                // If in TX state
-#if TX_TEST_ITVL_MS
-                if (uptimeCounter_elapsedSince(m_lastTx_ms) > 1000)
-                #endif // #if TX_TEST_ITVL_MS
+        case statusByteState_tx:
+            if (statusByteState_tx != m_lastReadStatusByteState)
+            {
+                m_inTx_ms = 0;
+            }
+            else
+            { // If in TX state, increment timer
+                m_inTx_ms += uptimeCounter_elapsedSince(m_lastPoll_ms);
+            }
+            if (m_inTx_ms >= 1000)
             {
                 NRF_LOG_WARNING("timed out in TX, switch to RX");
                 cc1101_strobe(STROBE_SRX);
             }
-            break;
-            case statusByteState_rx:
-                // If in receiving state
+        break;
+        case statusByteState_rx:
+            // If in receiving state
 //                NRF_LOG_DEBUG("Check for RX bytes")
 //                ;
-                tryReceivePacket(&m_rxSettings);
-                if (packetRxState_finishedWithPacket == m_rxSettings.rxState)
+            tryReceivePacket(&m_rxSettings);
+            if (packetRxState_finishedWithPacket == m_rxSettings.rxState)
+            {
+                if (m_rxSettings.packetBufIndex != m_rxSettings.expectedPacketLen)
                 {
-                    if (m_rxSettings.packetBufIndex != m_rxSettings.expectedPacketLen)
-                    {
-                        NRF_LOG_WARNING("Something wrong, didn't receive expected bytes");
-                    }
-                    else
-                    { // Parse it, if it looks OK.
-                        parsePacket(m_rxSettings.pPacket, m_rxSettings.packetBufLen);
-                    }
+                    NRF_LOG_WARNING("Something wrong, didn't receive expected bytes");
+                }
+                else
+                { // Parse it, if it looks OK.
+                    parsePacket(m_rxSettings.pPacket, m_rxSettings.packetBufLen);
+                }
+                m_rxSettings.rxState = packetRxState_awaitingPacketStart;
+                m_rxSettings.packetBufIndex = 0;
+            }
+            else
+            { // If not in finished state, check if length is equal, that would be an error
+                if (m_rxSettings.packetBufIndex >= m_rxSettings.expectedPacketLen)
+                {
+                    NRF_LOG_WARNING("Received %d of %d bytes, but state still %d", m_rxSettings.packetBufIndex,
+                                    m_rxSettings.expectedPacketLen,
+                                    m_rxSettings.rxState);
+                    // reset parser state
                     m_rxSettings.rxState = packetRxState_awaitingPacketStart;
                     m_rxSettings.packetBufIndex = 0;
                 }
-                else
-                { // If not in finished state, check if length is equal, that would be an error
-                    if (m_rxSettings.packetBufIndex >= m_rxSettings.expectedPacketLen)
-                    {
-                        NRF_LOG_WARNING("Received %d of %d bytes, but state still %d", m_rxSettings.packetBufIndex,
-                                        m_rxSettings.expectedPacketLen,
-                                        m_rxSettings.rxState);
-                        // reset parser state
-                        m_rxSettings.rxState = packetRxState_awaitingPacketStart;
-                        m_rxSettings.packetBufIndex = 0;
-                    }
-                    // Keep waiting for packet
-                }
-            break;
-            case statusByteState_idle:
-                NRF_LOG_DEBUG("move from idle to RX:")
-                ;
-                cc1101_strobe(STROBE_SRX);
-            break;
-            case statusByteState_rxOverflow:
-                NRF_LOG_ERROR("Detected RX overflow, flushing and idling")
-                ;
-                cc1101_setIdle(true);
-            break;
-            case statusByteState_txUnderflow:
-                NRF_LOG_ERROR("Detected TX underflow, flushing and idling")
-                ;
-                cc1101_setIdle(true);
-            break;
-            default:
-                NRF_LOG_WARNING("State 0x%x", CHIPSTATUSBYTE_STATE(m_lastChipStatusByte))
-                ;
-            break;
-        }
-        m_lastRxPoll_ms = uptimeCounter_getUptimeMs();
+                // Keep waiting for packet
+            }
+        break;
+        case statusByteState_idle:
+            //                NRF_LOG_DEBUG("move from idle to RX:")
+//                ;
+//                cc1101_strobe(STROBE_SRX);
+        break;
+        case statusByteState_rxOverflow:
+            NRF_LOG_ERROR("Detected RX overflow, flushing and idling")
+            ;
+            cc1101_setIdle(true);
+        break;
+        case statusByteState_txUnderflow:
+            NRF_LOG_ERROR("Detected TX underflow, flushing and idling")
+            ;
+            cc1101_setIdle(true);
+        break;
+        default:
+            NRF_LOG_WARNING("State 0x%x", CHIPSTATUSBYTE_STATE(m_lastChipStatusByte))
+            ;
+        break;
     }
+    m_lastReadStatusByteState = currentState;
+    m_lastPoll_ms = uptimeCounter_getUptimeMs();
 
 #if TX_TEST_ITVL_MS
-    if (uptimeCounter_elapsedSince(m_lastTx_ms) >= TX_TEST_ITVL_MS)
+if (uptimeCounter_elapsedSince(m_lastTx_ms) >= TX_TEST_ITVL_MS)
+{
+    // TODO run a TX packet
+    uint8_t txPacketBytes[PKT_LEN];
+    for (uint8_t i = 0; i < PKT_LEN; i++)
     {
-        // TODO run a TX packet
-        uint8_t txPacketBytes[PKT_LEN];
-        for (uint8_t i = 0; i < PKT_LEN; i++)
-        {
-            txPacketBytes[i] = i;
-        }
-        cc1101_sendBytes(txPacketBytes, PKT_LEN);
-        m_lastTx_ms = uptimeCounter_getUptimeMs();
+        txPacketBytes[i] = i;
     }
+    cc1101_sendBytes(txPacketBytes, PKT_LEN);
+    m_lastTx_ms = uptimeCounter_getUptimeMs();
+}
 #endif // #if TX_TEST_ITVL_MS
 }
 
@@ -1174,10 +1208,10 @@ bool cc1101_sendPacket(uint8_t* pBytes, uint8_t len)
         }
     }
     bool ret = true;
-    ret &= cc1101_writeBurst(TXFIFO_REGADDR, pBytes, PKT_LEN);
+    ret &= cc1101_writeBurst(TXFIFO_REGADDR, pktBuf, PKT_LEN);
     uint8_t regData;
     ret &= cc1101_readSingleByte(TXBYTES_REGADDR, &regData);
-    NRF_LOG_DEBUG("Wrote %d bytes to txfifo, TXYBTES says %d", PKT_LEN, regData);
+    NRF_LOG_DEBUG("Wanted to send %d bytes, sent packet of %d bytes to txfifo, TXYBTES says %d", len, PKT_LEN, regData);
     ret &= cc1101_strobe(STROBE_STX);
     return ret;
 }

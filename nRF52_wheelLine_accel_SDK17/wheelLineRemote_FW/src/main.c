@@ -57,7 +57,7 @@ static void initializeInputs(void)
     // Init any input pins, ADC, etc so we have those inputs set up and polled early.
     rttTerminal_init();
     gpioDriver_init(); // Sets the machine state
-    lis2dh_init();
+//    lis2dh_init();
     cc1101_init();
 }
 
@@ -81,7 +81,11 @@ int main(void)
     uptimeCounter_zero();
     // Get logging up
     log_init();
-    NRF_LOG_DEBUG("WheelLineRemote start");
+#if COMPILE_FOR_PCA10040
+    NRF_LOG_DEBUG("WheelLineDriver start, compiled for PCA10040");
+#elif COMPILE_FOR_FEATHER
+    NRF_LOG_DEBUG("WheelLineDriver start, compiled for FEATHER");
+#endif //
     // Start uptime tick timer, so we know what time it is
     uptimeCounter_init();
     // Zero the pollers, so future calls can init
