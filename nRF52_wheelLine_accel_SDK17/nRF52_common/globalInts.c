@@ -43,7 +43,7 @@ machineState_t globalInts_getMachineState(void)
 }
 void globalInts_setMachineState(machineState_t st)
 {
-    if (st < machState_invalidState)
+    if (st < machState_killEngine)
     {
         m_machState = st;
     }

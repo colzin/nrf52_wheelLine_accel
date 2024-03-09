@@ -8,7 +8,6 @@
 #include "rttTerminal.h"
 
 #include "cc1101.h"
-#include "globalInts.h"
 #include "nrf_delay.h"
 #include "pollers.h"
 #include "SEGGER_RTT.h"
@@ -47,13 +46,6 @@ static void rttPoll(void)
             ;
             cc1101_setIdle(true);
         break;
-        case 'o':
-            NRF_LOG_WARNING("Setting engine ON idle mode")
-            ;
-            globalInts_setMachineState(machState_runEngineHydIdle);
-        break;
-        case 't':
-            break;
         case 'r':
             NRF_LOG_WARNING("REbooting")
             ;

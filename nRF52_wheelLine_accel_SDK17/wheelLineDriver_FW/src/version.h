@@ -12,7 +12,7 @@
 extern "C" {
 #endif
 
-#define DEVICE_NAME      "WLR"  /**< Name of device. Will be included in the advertising data. */
+#define DEVICE_NAME      "WLD"  /**< Name of device. Will be included in the advertising data. */
 
 #define VERSION_MAJOR    0 // 1 byte
 #define VERSION_MINOR    0 // 1 byte
@@ -158,11 +158,6 @@ extern "C" {
 #define I2C1_SCL_PIN    PCA10040_GPIO28
 #define I2C1_SDA_PIN    PCA10040_GPIO29
 
-// GPIOs for buttons
-#define BUTTON_START_PIN    PCA10040_GPIO13_BUTTON_1
-#define BUTTON_REV_PIN    PCA10040_GPIO14_BUTTON_2
-#define BUTTON_FWD_PIN    PCA10040_GPIO15_BUTTON_3
-
 #elif COMPILE_FOR_FEATHER
 #warning "Compiling for nRF52 Bluefruit Feather"
 #define HEARTBEAT_LED_GPIO_NUM FEATHER_ONBOARD_GPIO17_LED1
@@ -204,11 +199,6 @@ extern "C" {
  */
 #define I2C1_SCL_PIN    FEATHER_GPIO26_SCL
 #define I2C1_SDA_PIN    FEATHER_GPIO25_SDA
-
-// GPIOs for buttons
-#define BUTTON_START_PIN    PCA10040_GPIO
-#define BUTTON_REV_PIN    PCA10040_GPIO
-#define BUTTON_FWD_PIN    PCA10040_GPIO TODO
 
 #else
 #error "define a board please"

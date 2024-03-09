@@ -371,7 +371,33 @@ static void testPoll(void)
 #else
 static void machineStatePoll(void)
 {
-
+    machineState_t stateNow = globalInts_getMachineState();
+    if (stateNow != m_lastMachState)
+    {
+        switch (stateNow)
+        {
+            // TODO update the display
+            case machState_justPoweredOn:
+                _4digit7seg_writeStr("P ON", 4);
+            break;
+            case machState_startEngine:
+                _4digit7seg_writeStr("ST E", 3);
+            break;
+            case machState_runEngineHydIdle:
+                _4digit7seg_writeStr("R I", 3);
+            break;
+            case machState_runEngineHydFwd:
+                _4digit7seg_writeStr("R F", 3);
+            break;
+            case machState_runEngineHydRev:
+                _4digit7seg_writeStr("R R", 3);
+            break;
+            case machState_killEngine:
+                _4digit7seg_writeStr("kill", 4);
+            break;
+        }
+        m_lastMachState = stateNow;
+    }
 }
 #endif // #if TEST_POLL_ITVL_MS
 
@@ -380,7 +406,7 @@ static void poll(void)
 #if TEST_POLL_ITVL_MS
     testPoll();
 #else
-
+    machineStatePoll();
 #endif // #if TEST_POLL_ITVL_MS
 
 }

@@ -28,17 +28,7 @@ NRF_LOG_MODULE_REGISTER();
 // Chip status byte comes back on every SPI transaction's first byte
 // b7 clear if ready
 #define CHIPSTATUSBYTE_STATE(x)    ((x>>4)&0x07) // b6:4 state[2:0]
-typedef enum
-{
-    statusByteState_idle = 0,
-    statusByteState_rx,
-    statusByteState_tx,
-    statusByteState_fastTxReady,
-    statusByteState_cal,
-    statusByteState_settling,
-    statusByteState_rxOverflow,
-    statusByteState_txUnderflow,
-} chipStatusByteState_t;
+// In h file for users to poll.
 #define CHIPSTATUSBYTE_FIFOBYTES_AVAIL(x) (x&0x0F) // b3:0 bytes available
 
 // Configuration Registers
@@ -446,6 +436,7 @@ typedef enum
     marcState_rxtx_switch,
     marcState_txfifo_underflow
 } marcState_state_t;
+
 #define WORTIME1_REGADDR        0xF6        // High byte of WOR timer
 #define WORTIME0_REGADDR        0xF7        // Low byte of WOR timer
 
@@ -484,15 +475,11 @@ typedef enum
 #define CC1101_READ_SINGLE  0x80
 #define CC1101_READ_BURST   0xC0
 
-#if COMPILE_FOR_PCA10040
-#define TX_TEST_ITVL_MS  3000 // non-zero to run TX test poll
-#else
 #define TX_TEST_ITVL_MS  0 // non-zero to run TX test poll
-#endif // #if COMPILE_FOR_PCA10040
 
 #define PKT_SIZE_FIXED 1 // TODO switch to variable later to save power.
 #if PKT_SIZE_FIXED
-#define TEST_PKT_LEN 60
+#define PKT_LEN 1
 #else
 #error "Define packet size or type"
 #endif // #if PKT_SIZE_FIXED
@@ -535,7 +522,7 @@ static uint32_t m_lastTx_ms;
 static uint32_t m_lastRxPoll_ms;
 
 // For receiving packets
-static uint8_t m_rxPacketBuffer[TEST_PKT_LEN];
+static uint8_t m_rxPacketBuffer[PKT_LEN];
 static packetRxSettings_t m_rxSettings;
 
 /*************************************************************************************
@@ -555,6 +542,11 @@ static void updateStatus(uint8_t newVal)
                       CHIPSTATUSBYTE_STATE(newVal));
         m_lastChipStatusByte = newVal;
     }
+}
+
+chipStatusByteState_t cc1101_getLastState(void)
+{
+    return CHIPSTATUSBYTE_STATE(m_lastChipStatusByte);
 }
 
 static bool cc1101_readSingleByte(uint8_t address, uint8_t* pByte)
@@ -611,7 +603,14 @@ static bool cc1101_writeSingleByte(uint8_t address, uint8_t data)
 static bool cc1101_writeBurst(uint8_t startAddress, uint8_t* data, uint32_t len)
 {
     startAddress |= CC1101_WRITE_BURST;
-    ret_code_t ret = spi0_write(spi0_cc1101, &startAddress, 1, true);
+    uint8_t sres;
+    nrfx_spi_xfer_desc_t xfer;
+    xfer.p_rx_buffer = &sres;
+    xfer.p_tx_buffer = &startAddress;
+    xfer.rx_length = 1;
+    xfer.tx_length = 1;
+    ret_code_t ret = spi0_xfer(spi0_cc1101, &xfer, true);
+    updateStatus(sres);
     ret |= spi0_write(spi0_cc1101, data, len, false);
     return ret == NRF_SUCCESS ? true : false;
 }
@@ -619,7 +618,14 @@ static bool cc1101_writeBurst(uint8_t startAddress, uint8_t* data, uint32_t len)
 static bool cc1101_readBurst(uint8_t startAddress, uint8_t* buffer, uint32_t len)
 {
     startAddress |= CC1101_READ_BURST;
-    ret_code_t ret = spi0_write(spi0_cc1101, &startAddress, 1, true);
+    uint8_t sres;
+    nrfx_spi_xfer_desc_t xfer;
+    xfer.p_rx_buffer = &sres;
+    xfer.p_tx_buffer = &startAddress;
+    xfer.rx_length = 1;
+    xfer.tx_length = 1;
+    ret_code_t ret = spi0_xfer(spi0_cc1101, &xfer, true);
+    updateStatus(sres);
     ret |= spi0_read(spi0_cc1101, buffer, len, false);
     return ret == NRF_SUCCESS ? true : false;
 }
@@ -728,8 +734,8 @@ static bool cc1101_selfTest(void)
 
 void cc1101_setIdle(bool flushFifos)
 {
-    uint8_t marcState;
     cc1101_strobe(STROBE_SIDLE); // Tell it to idle
+    uint8_t marcState;
     cc1101_readSingleByte(MARCSTATE_REGADDR, &marcState);
     while (marcState_idle != marcState)
     {
@@ -842,10 +848,10 @@ static void setupFeb6(void)
 #if PKT_SIZE_FIXED
 //    regByte | = TODO CRC, maybe whitening
     cc1101_writeSingleByte(PKTCTRL0_REGADDR, PKTCTRL0_LENGTH_CFG(pktLen_fixed)); //Packet Automation Control
-    cc1101_writeSingleByte(PKTLEN_REGADDR, TEST_PKT_LEN);
+    cc1101_writeSingleByte(PKTLEN_REGADDR, PKT_LEN);
 #else
 #error "define"
-#endif // Eif PKT_SIZE_FIXED
+#endif // #if PKT_SIZE_FIXED
     cc1101_writeSingleByte(FSCTRL1_REGADDR, 0x06); //Frequency Synthesizer Control
     cc1101_writeSingleByte(FREQ2_REGADDR, 0x10);   //Frequency Control Word_REGADDR, High Byte
     cc1101_writeSingleByte(FREQ1_REGADDR, 0xA7);   //Frequency Control Word_REGADDR, Middle Byte
@@ -1056,19 +1062,6 @@ static void tryReceivePacket(packetRxSettings_t* pSettings)
     }
 }
 
-static void sendTestPacket(void)
-{
-    uint8_t bytes[TEST_PKT_LEN];
-    for (uint32_t i = 0; i < TEST_PKT_LEN; i++)
-    {
-        bytes[i] = (uint8_t)(i + 1);
-    }
-    cc1101_writeBurst(TXFIFO_REGADDR, bytes, TEST_PKT_LEN);
-    cc1101_readSingleByte(TXBYTES_REGADDR, bytes);
-    NRF_LOG_DEBUG("Wrote %d bytes to txfifo, TXYBTES says %d", TEST_PKT_LEN, bytes[0]);
-    cc1101_strobe(STROBE_STX);
-}
-
 static void parsePacket(uint8_t* pData, uint32_t len)
 {
     NRF_LOG_DEBUG("TODO parse %d byte packet", len);
@@ -1150,10 +1143,43 @@ static void cc1101Poll(void)
     if (uptimeCounter_elapsedSince(m_lastTx_ms) >= TX_TEST_ITVL_MS)
     {
         // TODO run a TX packet
-        sendTestPacket();
+        uint8_t txPacketBytes[PKT_LEN];
+        for (uint8_t i = 0; i < PKT_LEN; i++)
+        {
+            txPacketBytes[i] = i;
+        }
+        cc1101_sendBytes(txPacketBytes, PKT_LEN);
         m_lastTx_ms = uptimeCounter_getUptimeMs();
     }
 #endif // #if TX_TEST_ITVL_MS
+}
+
+bool cc1101_sendPacket(uint8_t* pBytes, uint8_t len)
+{
+    if (len > PKT_LEN)
+    {
+        NRF_LOG_ERROR("Can only send %d bytes per packet, not %d, ignoring", PKT_LEN, len);
+        return false;
+    }
+    uint8_t pktBuf[PKT_LEN];
+    for (uint8_t i = 0; i < PKT_LEN; i++)
+    {
+        if (i < len)
+        {
+            pktBuf[i] = pBytes[i];
+        }
+        else
+        {
+            pktBuf[i] = 0xFF;
+        }
+    }
+    bool ret = true;
+    ret &= cc1101_writeBurst(TXFIFO_REGADDR, pBytes, PKT_LEN);
+    uint8_t regData;
+    ret &= cc1101_readSingleByte(TXBYTES_REGADDR, &regData);
+    NRF_LOG_DEBUG("Wrote %d bytes to txfifo, TXYBTES says %d", PKT_LEN, regData);
+    ret &= cc1101_strobe(STROBE_STX);
+    return ret;
 }
 
 void cc1101_init(void)

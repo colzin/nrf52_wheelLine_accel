@@ -15,11 +15,10 @@
 
 #include "cc1101.h"
 #include "ev1527SPI.h"
-#include "gpioDriver.h"
+
 #include "heartbeatBlink.h"
 #include "lis2dh.h"
 #include "pollers.h"
-#include "remoteControlManager.h"
 #include "rttTerminal.h"
 #include "sh1107I2C.h"
 #include <stdint.h>
@@ -56,19 +55,17 @@ static void initializeInputs(void)
 
     // Init any input pins, ADC, etc so we have those inputs set up and polled early.
     rttTerminal_init();
-    gpioDriver_init(); // Sets the machine state
     lis2dh_init();
-    cc1101_init();
+//    cc1101_init();
 }
 
 static void initializeOutputs(void)
 { // outputs from our system, may make decisions based on pollers run as inputs
-
-    remoteControlManager_init();
+// TODO Init output pin managers
     heartblink_init();
     _4digit7seg_init();
-//    ev1527SPI_init();
-    sh1107I2C_init();
+    ev1527SPI_init();
+//    sh1107I2C_init();
 }
 static void log_init(void)
 {

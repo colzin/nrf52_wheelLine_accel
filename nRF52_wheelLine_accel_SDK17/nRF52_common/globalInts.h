@@ -21,9 +21,9 @@ typedef enum
     machState_runEngineHydIdle,
     machState_runEngineHydFwd,
     machState_runEngineHydRev,
-    machState_killEngine,
     // TODO add any states here
-    machState_invalidState
+    machState_killEngine // Keep this one last, to sanity check enum value on sets
+
 }machineState_t;
 
 machineState_t globalInts_getMachineState(void);
