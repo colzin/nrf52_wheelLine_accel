@@ -73,6 +73,9 @@ NRF_LOG_MODULE_REGISTER();
  * 125,000/3012.12 = 41.499 bits per pulse
  * 125,000/2976.19 = 42.00 bits per pulse
  * Looks like 41 bits may work, 42 should work!
+ * Tested at 32 bits, got 260us pulse.
+ * Tested at 36 bits, got 290.0us pulse.
+ * Tested at 39 bits, got 320us pulse.
  * Tested at 42 bits, got 330us pulse. Switch to 43.
  * Tested at 43 bits, got 340us pulse.
  * Tested at 42 bits, got 330us pulse, but actual RF was only active for 309us
@@ -80,7 +83,7 @@ NRF_LOG_MODULE_REGISTER();
  * Tested at 45 bits, RF active for 340us, just like remote of 339us!
  */
 
-#define SPI_BITS_PER_SUB_BIT 45 // Seems to work best at SPI SCK 125kHz with cheap RF sender circuit
+#define SPI_BITS_PER_SUB_BIT 36 // Seems to work best at SPI SCK 125kHz with cheap RF sender circuit
 
 #define SPI_TX_BYTES ((EV1527_SUB_BITS_PER_PACKET*SPI_BITS_PER_SUB_BIT)/8) // tune to be the size of an EV1527 packet.
 
@@ -89,6 +92,29 @@ NRF_LOG_MODULE_REGISTER();
 #if TX_TEST_ITVL_MS
 #define TX_TEST_NUM_REPEATS 30 // about 50 per second
 #endif // #if TX_TEST_ITVL_MS
+
+#define MY_8CH_ADDR         (0x020D74)
+#define CONRAD_4BUTTON_ADDR (0b10111100100010000001)
+
+/* Conrad's 4-button remote sends this when button1 is pressed:
+ * 1110 1000 1110 1110 1110 1110 1000 1000 1110 1000 1000 1000 1110 1000 1000 1000 1000 1000 1000 1110 1110 1000 1000 1000 1000
+ * Conrad's 4-button sends this when all pressed:
+ * 1110 1000 1110 1110 1110 1110 1000 1000 1110 1000 1000 1000 1110 1000 1000 1000 1000 1000 1000 1110 1110 1110 1110 1110 1000
+ * a '1' for EV1524 is 3 1s, 1, 0. A '0' is 1 1, 3 zeros.
+ * 0b 1    0    1    1    1    1    0    0    1    0    0    0    1    0    0    0    0    0    0    1    1    1    1    1    0
+ * So address (maybe plus data) appears to be
+ * 0b1011110010001000000111110
+ * EV1527 says it transmits 20 bits of address and 4 of data. So take the last 4 bits off the end.
+ * (address) 0b101111001000100000011 , but that is 21 bits, with 4 data bits 0b1110
+ * Ok, next transmit is immediately after this one in the log, and it has 1 set sub-bit, so it looks like a zero bit.
+ * so, 0b1011110010001000000111110 is
+ * 0b (20 address bits):10111100100010000001 (4 data bits):1111 (next 1 sub-bit):0
+ * Conrad's try two:
+ * 0b 1 0 1 1 1 1 0 0 1 0 0 0 1 0 0 0 0 0 0 1 1 1 1 1 0 ... but that's the next start
+ * 0b10111100100010000001, first below:
+ * 0b1011 1100 1000 1000 0001, same
+ */
+uint32_t g_address;
 
 uint32_t g_iterator;
 
@@ -427,7 +453,7 @@ static void stateMachinePoll(void)
         }
         else
         { // Figure out what data to send
-            int32_t bufIdx = writeNextTxBuffer(0x020D74, getBitsToSet(stateNow));
+            int32_t bufIdx = writeNextTxBuffer(g_address, getBitsToSet(stateNow));
             setDesiredTxIdx(bufIdx);
         }
         m_lastMachineState = stateNow;
@@ -476,6 +502,8 @@ void ev1527SPI_init(void)
     m_xfer.tx_length = SPI_TX_BYTES;
 
     NRF_LOG_INFO("Init success");
+
+    g_address = CONRAD_4BUTTON_ADDR;
     pollers_registerPoller(ev1527SPIpoll);
 
 #if TX_TEST_ITVL_MS

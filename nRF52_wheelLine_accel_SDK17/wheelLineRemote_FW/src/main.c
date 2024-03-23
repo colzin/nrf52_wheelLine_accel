@@ -67,7 +67,7 @@ static void initializeOutputs(void)
     remoteControlManager_init();
     heartblink_init();
     _4digit7seg_init();
-//    ev1527SPI_init();
+    ev1527SPI_init();
     sh1107I2C_init();
 
 }

@@ -65,12 +65,17 @@ static void gpioDriverPoll(void)
             }
         break;
         case machState_runEngineHydIdle:
-            if (isPressed(BUTTON_FWD_PIN))
+            if (isPressed(BUTTON_START_PIN))
+            {
+                NRF_LOG_INFO("Moving to START state");
+                globalInts_setMachineState(machState_startEngine);
+            }
+            else if (isPressed(BUTTON_FWD_PIN))
             {
                 NRF_LOG_INFO("FWD pressed, engine HYD FWD");
                 globalInts_setMachineState(machState_runEngineHydFwd);
             }
-            if (isPressed(BUTTON_REV_PIN))
+            else if (isPressed(BUTTON_REV_PIN))
             {
                 NRF_LOG_INFO("REV pressed, engine HYD REV");
                 globalInts_setMachineState(machState_runEngineHydRev);
