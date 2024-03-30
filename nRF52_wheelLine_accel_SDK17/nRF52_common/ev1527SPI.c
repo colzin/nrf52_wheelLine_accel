@@ -74,16 +74,18 @@ NRF_LOG_MODULE_REGISTER();
  * 125,000/2976.19 = 42.00 bits per pulse
  * Looks like 41 bits may work, 42 should work!
  * Tested at 32 bits, got 260us pulse.
- * Tested at 36 bits, got 290.0us pulse.
+ * Tested at 36 bits, got 290us pulse.
+ * Tested at 37 bits, got 294us pulse.
+ * Tested at 38 bits, got 302us pulse.
  * Tested at 39 bits, got 320us pulse.
- * Tested at 42 bits, got 330us pulse. Switch to 43.
+ * Tested at 42 bits, got 330us pulse. 43 seems to work best at SPI SCK 125kHz with cheap RF sender circuit
  * Tested at 43 bits, got 340us pulse.
  * Tested at 42 bits, got 330us pulse, but actual RF was only active for 309us
  * Tested at 43 bits, RF active for 321us.
  * Tested at 45 bits, RF active for 340us, just like remote of 339us!
  */
 
-#define SPI_BITS_PER_SUB_BIT 36 // Seems to work best at SPI SCK 125kHz with cheap RF sender circuit
+#define SPI_BITS_PER_SUB_BIT 38
 
 #define SPI_TX_BYTES ((EV1527_SUB_BITS_PER_PACKET*SPI_BITS_PER_SUB_BIT)/8) // tune to be the size of an EV1527 packet.
 
@@ -441,36 +443,36 @@ static uint8_t getBitsToSet(machineState_t stateNow)
 }
 
 static int32_t m_lastMachineState;
-static void stateMachinePoll(void)
+void ev1527_setSendState(machineState_t currentState)
 {
-    machineState_t stateNow = globalInts_getMachineState();
-    if (m_lastMachineState != stateNow)
+    if (m_lastMachineState != currentState)
     {
         // Set up a new packet to send, or turn off.
-        if (machState_killEngine == stateNow || machState_justPoweredOn)
+        if (machState_killEngine == currentState || machState_justPoweredOn)
         { // Tell it to turn off sending data
             setDesiredTxIdx(SPI_DONE_SENDING_BUF_INDEX);
         }
         else
         { // Figure out what data to send
-            int32_t bufIdx = writeNextTxBuffer(g_address, getBitsToSet(stateNow));
+            int32_t bufIdx = writeNextTxBuffer(g_address, getBitsToSet(currentState));
             setDesiredTxIdx(bufIdx);
         }
-        m_lastMachineState = stateNow;
+        NRF_LOG_INFO("Switched from state %d to %d for TX", m_lastMachineState, currentState);
+        m_lastMachineState = currentState;
     }
-
-}
-static void ev1527SPIpoll(void)
-{
-
-#if TX_TEST_ITVL_MS
-    txTestPoll();
-#else
-    stateMachinePoll();
-#endif // #if TX_TEST_ITVL_MS
 }
 
-void ev1527SPI_init(void)
+//static void ev1527SPIpoll(void)
+//{
+//
+//#if TX_TEST_ITVL_MS
+//    txTestPoll();
+//#else
+//    stateMachinePoll();
+//#endif // #if TX_TEST_ITVL_MS
+//}
+
+void ev1527SPI_init(uint8_t txPin)
 {
     setupRadioOutputs();
 // Set up I2S to send data
@@ -481,7 +483,7 @@ void ev1527SPI_init(void)
     config.irq_priority = APP_IRQ_PRIORITY_MID;
     config.miso_pin = NRFX_SPI_PIN_NOT_USED; // unused
     config.mode = NRF_SPI_MODE_1; // Mode 1 makes MOSI idle low, which is what we need for radio
-    config.mosi_pin = SPI2_MOSI_PIN; // Route to radio TX pin
+    config.mosi_pin = txPin; // Route to radio TX pin
     config.orc = 0x00; // Send zeros, don't turn on radio if we don't know what we are doing
     config.sck_pin = SPI2_SCK_PIN; // we don't need this pin, but nrfx driver needs it
     config.ss_pin = NRFX_SPI_PIN_NOT_USED;
@@ -501,10 +503,9 @@ void ev1527SPI_init(void)
     m_xfer.rx_length = 0;
     m_xfer.tx_length = SPI_TX_BYTES;
 
-    NRF_LOG_INFO("Init success");
-
     g_address = CONRAD_4BUTTON_ADDR;
-    pollers_registerPoller(ev1527SPIpoll);
+
+    NRF_LOG_INFO("Init success, using address 0x%x", g_address);
 
 #if TX_TEST_ITVL_MS
     g_lastTx_ms = uptimeCounter_getUptimeMs();

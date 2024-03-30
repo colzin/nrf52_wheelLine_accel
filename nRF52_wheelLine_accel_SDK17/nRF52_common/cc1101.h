@@ -31,6 +31,14 @@ typedef enum
     statusByteState_txUnderflow,
 } chipStatusByteState_t;
 
+typedef enum
+{
+    cc1101_unknownMode = 0,
+    cc1101_asyncTX,
+    cc1101_packetTX,
+    cc1101_packetRX,
+} cc1101Mode_t;
+
 /*************************************************************************************
  * Functions
  ************************************************************************************/
@@ -41,10 +49,10 @@ void cc1101_setIdle(bool flushFifos);
 
 bool cc1101_sendPacket(uint8_t* pBytes, uint8_t len);
 
-// Call this AFTER calling init, which sets it to idle
-void cc1101_setDesiredState(chipStatusByteState_t desiredState);
+cc1101Mode_t cc1101_readMode(void);
+void cc1101_setOutputPower(int8_t power_dBm);
 
-void cc1101_init(void);
+void cc1101_init(cc1101Mode_t desired);
 
 #ifdef __cplusplus
 }

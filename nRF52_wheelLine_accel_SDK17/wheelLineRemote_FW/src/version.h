@@ -18,7 +18,7 @@ extern "C" {
 #define VERSION_MINOR    0 // 1 byte
 #define VERSION_SUBMINOR 1 // 1 byte
 
-#define COMPILE_FOR_PCA10040 1
+#define COMPILE_FOR_PCA10040 0
 #if (!COMPILE_FOR_PCA10040)
 #define COMPILE_FOR_FEATHER 1
 #endif // #if (!COMPILE_FOR_PCA10040)
@@ -170,8 +170,8 @@ extern "C" {
 // For EV1527Timer
 #define RADIO_TX_GPIO   FEATHER_GPIO20_DFU
 // For EV1527SPI
-#define SPI2_SCK_PIN    FEATHER_GPIO15_15
-#define SPI2_MOSI_PIN   FEATHER_GPIO16_16
+#define SPI2_SCK_PIN    FEATHER_GPIO16_16
+#define SPI2_MOSI_PIN   FEATHER_GPIO15_15
 
 // SPI0 for e-ink, CC1101, etc...
 #define SPI0_MISO_PIN   FEATHER_GPIO14_MISO
@@ -206,9 +206,9 @@ extern "C" {
 #define I2C1_SDA_PIN    FEATHER_GPIO25_SDA
 
 // GPIOs for buttons
-#define BUTTON_START_PIN    PCA10040_GPIO
-#define BUTTON_REV_PIN    PCA10040_GPIO
-#define BUTTON_FWD_PIN    PCA10040_GPIO TODO
+#define BUTTON_START_PIN    FEATHER_GPIO2_A0
+#define BUTTON_REV_PIN    FEATHER_GPIO3_A1
+#define BUTTON_FWD_PIN    FEATHER_GPIO4_A2
 
 #else
 #error "define a board please"

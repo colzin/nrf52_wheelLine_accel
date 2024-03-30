@@ -14,7 +14,8 @@
 #endif // #if NRF_SDH_ENABLED
 
 #include "cc1101.h"
-#include "ev1527SPI.h"
+
+#include "globalInts.h"
 #include "gpioDriver.h"
 #include "heartbeatBlink.h"
 #include "lis2dh.h"
@@ -57,8 +58,8 @@ static void initializeInputs(void)
     // Init any input pins, ADC, etc so we have those inputs set up and polled early.
     rttTerminal_init();
     gpioDriver_init(); // Sets the machine state
-//    lis2dh_init();
-    cc1101_init();
+    lis2dh_init(); // on the Remote, not driver
+//    cc1101_init(cc1101_packetRX); // Rx on driver, not remote
 }
 
 static void initializeOutputs(void)
@@ -67,7 +68,7 @@ static void initializeOutputs(void)
     remoteControlManager_init();
     heartblink_init();
     _4digit7seg_init();
-    ev1527SPI_init();
+    cc1101_init(cc1101_packetTX); // TX on Remote, Rx on driver
     sh1107I2C_init();
 
 }
@@ -87,6 +88,10 @@ int main(void)
 #elif COMPILE_FOR_FEATHER
     NRF_LOG_DEBUG("WheelLineDriver start, compiled for FEATHER");
 #endif //
+
+    NRF_LOG_DEBUG("DEVid 0x%x %x, addr 0x%x %x", NRF_FICR->DEVICEID[1],
+                  NRF_FICR->DEVICEID[0],
+                  NRF_FICR->DEVICEADDR[1], NRF_FICR->DEVICEADDR[0]);
     // Start uptime tick timer, so we know what time it is
     uptimeCounter_init();
     // Zero the pollers, so future calls can init

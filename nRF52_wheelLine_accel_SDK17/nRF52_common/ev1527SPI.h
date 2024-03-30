@@ -12,7 +12,12 @@
 extern "C" {
 #endif
 
-void ev1527SPI_init(void);
+#include "globalInts.h"
+#include <stdint.h>
+
+void ev1527_setSendState(machineState_t currentState);
+
+void ev1527SPI_init(uint8_t txPin);
 
 #ifdef __cplusplus
 }
