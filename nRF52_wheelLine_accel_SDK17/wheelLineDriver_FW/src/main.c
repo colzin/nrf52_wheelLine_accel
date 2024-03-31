@@ -57,7 +57,7 @@ static void initializeInputs(void)
     // Init any input pins, ADC, etc so we have those inputs set up and polled early.
     rttTerminal_init();
     lis2dh_init();
-    cc1101_init();
+    cc1101_init(cc1101_packetRX);
 }
 
 static void initializeOutputs(void)
@@ -80,10 +80,11 @@ int main(void)
     // Get logging up
     log_init();
 #if COMPILE_FOR_PCA10040
-    NRF_LOG_DEBUG("WheelLineDriver start, compiled for PCA10040");
+    NRF_LOG_DEBUG("%s start, compiled for PCA10040",DEVICE_NAME);
 #elif COMPILE_FOR_FEATHER
-    NRF_LOG_DEBUG("WheelLineDriver start, compiled for FEATHER");
+    NRF_LOG_DEBUG("%s start, compiled for FEATHER", DEVICE_NAME);
 #endif //
+
     // Start uptime tick timer, so we know what time it is
     uptimeCounter_init();
     // Zero the pollers, so future calls can init
@@ -100,8 +101,6 @@ int main(void)
     bleStuff_init();
     bleStuff_printBLEVersion();
 #endif // #if NRF_SDH_ENABLED && RUN_BLE
-
-    cc1101_setDesiredState(statusByteState_rx); // Receive by default, since we need to listen
 
     uint32_t lastPoll_ms = uptimeCounter_getUptimeMs();
     uint32_t ms_now;

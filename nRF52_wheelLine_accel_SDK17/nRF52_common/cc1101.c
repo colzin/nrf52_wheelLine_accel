@@ -483,7 +483,7 @@ typedef enum
 
 #define PKT_SIZE_FIXED 1 // TODO switch to variable later to save power.
 #if PKT_SIZE_FIXED
-#define PKT_LEN 60
+#define PKT_LEN 3
 #else
 #error "Define packet size or type"
 #endif // #if PKT_SIZE_FIXED
@@ -534,8 +534,21 @@ static packetRxSettings_t m_rxSettings;
 
 static cc1101Mode_t m_opMode;
 
-static bool m_newPaTable;
-static uint8_t m_desiredPaVal;
+static bool m_newTxPower;
+static int8_t m_desiredTxdBm;
+
+const char* m_statuses[statusByteState_txUnderflow + 1]
+=
+        {
+          "idle",
+          "rx",
+          "tx",
+          "fastTxReady",
+          "cal",
+          "settling",
+          "rxOverflow",
+          "txUnderflow",
+        };
 
 /*************************************************************************************
  *  Prototypes
@@ -550,8 +563,8 @@ static void updateStatus(uint8_t newVal)
 
     if (CHIPSTATUSBYTE_STATE(m_lastChipStatusByte) != CHIPSTATUSBYTE_STATE(newVal))
     {
-        NRF_LOG_DEBUG("Status from 0x%x to 0x%x", CHIPSTATUSBYTE_STATE(m_lastChipStatusByte),
-                      CHIPSTATUSBYTE_STATE(newVal));
+        NRF_LOG_DEBUG("Status from %s to %s", m_statuses[CHIPSTATUSBYTE_STATE(m_lastChipStatusByte)],
+                      m_statuses[CHIPSTATUSBYTE_STATE(newVal)]);
         m_lastChipStatusByte = newVal;
     }
 }
@@ -784,6 +797,81 @@ void cc1101_setIdle(bool flushFifos)
 //    nrf_delay_us(100);
 }
 
+static void setTxPower(int8_t tx_dBm)
+{
+    uint8_t desiredPaVal;
+    if (tx_dBm <= -30)
+    {
+        m_desiredTxdBm = -30;
+        desiredPaVal = 0x03;
+        NRF_LOG_INFO("Switching to -30");
+    }
+    else if (tx_dBm <= -20)
+    {
+        m_desiredTxdBm = -20;
+        desiredPaVal = 0x17;
+        NRF_LOG_INFO("Switching to -20");
+    }
+    else if (tx_dBm <= -15)
+    {
+        m_desiredTxdBm = -15;
+        desiredPaVal = 0x1d;
+        NRF_LOG_INFO("Switching to -15");
+    }
+    else if (tx_dBm <= -10)
+    {
+        m_desiredTxdBm = -10;
+        desiredPaVal = 0x26;
+        NRF_LOG_INFO("Switching to -10");
+    }
+    else if (tx_dBm <= -6)
+    {
+        m_desiredTxdBm = -6;
+        desiredPaVal = 0x37;
+        NRF_LOG_INFO("Switching to -6");
+    }
+    else if (tx_dBm <= 0)
+    {
+        m_desiredTxdBm = 0;
+        desiredPaVal = 0x50;
+        NRF_LOG_INFO("Switching to 0");
+    }
+    else if (tx_dBm <= 5)
+    {
+        m_desiredTxdBm = 5;
+        desiredPaVal = 0x86;
+        NRF_LOG_INFO("Switching to 5");
+    }
+    else if (tx_dBm <= 7)
+    {
+        m_desiredTxdBm = 7;
+        desiredPaVal = 0xcd;
+        NRF_LOG_INFO("Switching to 7");
+    }
+    else if (tx_dBm <= 10)
+    {
+        m_desiredTxdBm = 10;
+        desiredPaVal = 0xc5;
+        NRF_LOG_INFO("Switching to 10");
+    }
+    else
+    {
+        m_desiredTxdBm = 12;
+        desiredPaVal = 0xc0;
+        NRF_LOG_INFO("Switching to 12 (max)");
+    }
+    uint8_t paTableBytes[8] = { 0x00, desiredPaVal, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    if (cc1101_writeBurst(PATABLE_REGADDR, paTableBytes, 8))
+    {
+        NRF_LOG_INFO("Set PATABLE");
+    }
+    else
+    {
+        NRF_LOG_ERROR("ERROR setting PATABLE");
+    }
+    m_newTxPower = false;
+}
+
 // From TI studio Nov 13, 2023 for 3kBaud at 433MHz ASK
 static void cc1101_initASKTx_myStudio(void)
 {
@@ -908,10 +996,11 @@ static void setup433PacketTx(void)
     cc1101_writeSingleByte(TEST1_REGADDR, 0x35);   //Various Test Settings
     cc1101_writeSingleByte(TEST0_REGADDR, 0x09);   //Various Test Settings
 //    uint8_t paTableBytes[8] = { 0x00, 0x1D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; // 0x1D for -15dBm
-    uint8_t paTableBytes[8] = { 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; // 0x03 for -30dBm TX power
-    cc1101_writeBurst(PATABLE_REGADDR, paTableBytes, 8);
+//    uint8_t paTableBytes[8] = { 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; // 0x03 for -30dBm TX power
+//    cc1101_writeBurst(PATABLE_REGADDR, paTableBytes, 8);
+    setTxPower(30);
 
-    NRF_LOG_WARNING("CC1101 setup433PacketTx done");
+    NRF_LOG_WARNING("CC1101 setup433PacketTx done, TX dBm %d", m_desiredTxdBm);
 }
 
 /* Packet sniffer settings Feb 06 2024
@@ -1081,11 +1170,15 @@ static void readRSSIandLQI(packetRxSettings_t* pSettings, uint8_t numFifoBytes)
     pSettings->LQI = LQI_LQI_EST(u8);
     pSettings->CRCok = (u8 & LQI_CRC_OK) ? true : false;
     pSettings->rxState = packetRxState_finishedWithPacket;
-    NRF_LOG_DEBUG("Read RSSI %d,LQI %d, CRC %s", pSettings->RSSI, pSettings->LQI,
-                  pSettings->CRCok ? "ok or disabled" : "not ok");
+    NRF_LOG_DEBUG("Read RSSI %d ,LQI %d, CRC %s", pSettings->RSSI, pSettings->LQI,
+                  pSettings->CRCok ? "ok or na" : "not ok");
 
-    cc1101_readSingleByte(LQI_REGADDR, &u8);
-    NRF_LOG_DEBUG(" Read LQI regaddr: LQI %d, CRC %s", LQI_LQI_EST(u8), (u8&LQI_CRC_OK)?"ok":"not ok");
+    uint8_t u82;
+    cc1101_readSingleByte(LQI_REGADDR, &u82);
+    if (u8 != u82)
+    {
+        NRF_LOG_WARNING(" Read LQI regaddr: LQI %d, CRC %s", LQI_LQI_EST(u8), (u8&LQI_CRC_OK)?"ok":"not ok");
+    }
 }
 
 static void readPacketBytes(packetRxSettings_t* pSettings, uint8_t numFifoBytes)
@@ -1151,16 +1244,16 @@ static void readVariablePacket(packetRxSettings_t* pSettings, uint8_t numFifoByt
     }
 }
 
-static void parsePacket(uint8_t* pData, uint32_t len)
+static void parsePacketAndLQI(int8_t RSSI, int8_t LQI, bool crcOK, uint8_t* pData, uint32_t len)
 {
-    NRF_LOG_DEBUG("RX %d-byte packet, TX power %d", len, (int8_t )(pData[0]));
-    if (1 == len)
+    NRF_LOG_INFO("  RX %d-byte packet, RSSI %d, LQI %d, CRC %d.", len, RSSI, LQI, crcOK);
+    if (1 <= len)
     {
-        globalInts_setMachineState((machineState_t)(pData[1]));
+        NRF_LOG_INFO("  TX power %d dBm", (int8_t )pData[0]);
     }
-    else
+    if (2 <= len)
     {
-        NRF_LOG_DEBUG("TODO parse %d byte packet", len);
+        globalInts_setMachineState((machineState_t)pData[1]);
     }
 }
 static void tryReceivePacket(packetRxSettings_t* pSettings)
@@ -1224,7 +1317,16 @@ static void tryReceivePacket(packetRxSettings_t* pSettings)
         }
         else
         { // Parse it, if it looks OK.
-            parsePacket(m_rxSettings.pPacket, m_rxSettings.packetBufLen);
+            if (m_rxSettings.RSSIandLQIAppended)
+            {
+                parsePacketAndLQI(m_rxSettings.RSSI, m_rxSettings.LQI, m_rxSettings.CRCok, m_rxSettings.pPacket,
+                                  m_rxSettings.packetBufLen);
+            }
+            else
+            {
+                NRF_LOG_WARNING("Packet without LQI, TODO parse");
+            }
+
         }
         cc1101_setIdle(true);
         m_rxSettings.rxState = packetRxState_awaitingPacketStart;
@@ -1300,7 +1402,7 @@ static void packetRxPoll(chipStatusByteState_t currentState)
             //            NRF_LOG_DEBUG("RX Check for Received")
             //            ;
             //            tryReceivePacket(&m_rxSettings);
-            if (m_inState_ms >= 1000)
+            if (m_inState_ms >= 5000)
             { // It should transition to IDLE when done receiving a packet
                 NRF_LOG_ERROR("Timed out in RX state, flushing and idling")
                 ;
@@ -1315,20 +1417,12 @@ static void packetRxPoll(chipStatusByteState_t currentState)
             //            ;
             tryReceivePacket(&m_rxSettings);
             // In RX mode, switch to RX state ASAP
-            if (m_newPaTable)
+            if (m_newTxPower)
             {
-                uint8_t paTableBytes[8] = { 0x00, m_desiredPaVal, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-                if (cc1101_writeBurst(PATABLE_REGADDR, paTableBytes, 8))
-                {
-                    NRF_LOG_INFO("Set PATABLE");
-                }
-                else
-                {
-                    NRF_LOG_ERROR("ERROR setting PATABLE");
-                }
-                m_newPaTable = false;
+                setTxPower(m_desiredTxdBm);
+                m_newTxPower = false;
             }
-            NRF_LOG_DEBUG("move from idle to RX:")
+            NRF_LOG_DEBUG("poller start RX:")
             ;
             cc1101_strobe(STROBE_FLUSHRXFIFO); // Can flush in idle
             cc1101_strobe(STROBE_FLUSHTXFIFO); // Can flush in idle
@@ -1374,18 +1468,10 @@ static void packetTxPoll(chipStatusByteState_t currentState)
         break;
         case statusByteState_idle:
             // Idle until someone calls sendPacket
-            if (m_newPaTable)
+            if (m_newTxPower)
             {
-                uint8_t paTableBytes[8] = { 0x00, m_desiredPaVal, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-                if (cc1101_writeBurst(PATABLE_REGADDR, paTableBytes, 8))
-                {
-                    NRF_LOG_INFO("Set PATABLE");
-                }
-                else
-                {
-                    NRF_LOG_ERROR("ERROR setting PATABLE");
-                }
-                m_newPaTable = false;
+                setTxPower(m_desiredTxdBm);
+                m_newTxPower = false;
             }
         break;
         case statusByteState_rxOverflow:
@@ -1456,33 +1542,47 @@ if (uptimeCounter_elapsedSince(m_lastTx_ms) >= TX_TEST_ITVL_MS)
 
 }
 
-bool cc1101_sendPacket(uint8_t* pBytes, uint8_t len)
+//bool cc1101_sendPacket(uint8_t* pBytes, uint8_t len)
+//{
+//    if (len > PKT_LEN)
+//    {
+//        NRF_LOG_ERROR("Can only send %d bytes per packet, not %d, ignoring", PKT_LEN, len);
+//        return false;
+//    }
+//    uint8_t pktBuf[PKT_LEN];
+//    for (uint8_t i = 0; i < PKT_LEN; i++)
+//    {
+//        if (i < len)
+//        {
+//            pktBuf[i] = pBytes[i];
+//        }
+//        else
+//        {
+//            pktBuf[i] = 0xFF;
+//        }
+//    }
+//    bool ret = true;
+//    ret &= cc1101_writeBurst(TXFIFO_REGADDR, pktBuf, PKT_LEN);
+//    uint8_t regData;
+//    ret &= cc1101_readSingleByte(TXBYTES_REGADDR, &regData);
+//    NRF_LOG_DEBUG("Wanted to send %d bytes, sent packet of %d bytes to txfifo, TXYBTES says %d", len, PKT_LEN,
+//                  regData);
+//    ret &= cc1101_strobe(STROBE_STX);
+//    return ret;
+//}
+
+bool cc1101_sendState(uint8_t machState)
 {
-    if (len > PKT_LEN)
-    {
-        NRF_LOG_ERROR("Can only send %d bytes per packet, not %d, ignoring", PKT_LEN, len);
-        return false;
-    }
     uint8_t pktBuf[PKT_LEN];
-    for (uint8_t i = 0; i < PKT_LEN; i++)
-    {
-        if (i < len)
-        {
-            pktBuf[i] = pBytes[i];
-        }
-        else
-        {
-            pktBuf[i] = 0xFF;
-        }
-    }
+    pktBuf[0] = (uint8_t)m_desiredTxdBm;
+    pktBuf[1] = machState;
     bool ret = true;
     ret &= cc1101_writeBurst(TXFIFO_REGADDR, pktBuf, PKT_LEN);
-    uint8_t regData;
-    ret &= cc1101_readSingleByte(TXBYTES_REGADDR, &regData);
-    NRF_LOG_DEBUG("Wanted to send %d bytes, sent packet of %d bytes to txfifo, TXYBTES says %d", len, PKT_LEN,
-                  regData);
+    ret &= cc1101_readSingleByte(TXBYTES_REGADDR, pktBuf);
+    NRF_LOG_DEBUG("Sent packet of %d bytes at %d dBm to txfifo, TXYBTES says %d", PKT_LEN, m_desiredTxdBm, pktBuf[0]);
     ret &= cc1101_strobe(STROBE_STX);
     return ret;
+
 }
 
 cc1101Mode_t cc1101_readMode(void)
@@ -1492,57 +1592,8 @@ cc1101Mode_t cc1101_readMode(void)
 
 void cc1101_setOutputPower(int8_t power_dBm)
 {
-    if (power_dBm <= -30)
-    {
-        m_desiredPaVal = 0x03;
-        NRF_LOG_INFO("Switching to -30");
-    }
-    else if (power_dBm <= -20)
-    {
-        m_desiredPaVal = 0x17;
-        NRF_LOG_INFO("Switching to -20");
-    }
-    else if (power_dBm <= -15)
-    {
-        m_desiredPaVal = 0x1d;
-        NRF_LOG_INFO("Switching to -15");
-    }
-    else if (power_dBm <= -10)
-    {
-        m_desiredPaVal = 0x26;
-        NRF_LOG_INFO("Switching to -10");
-    }
-    else if (power_dBm <= -6)
-    {
-        m_desiredPaVal = 0x37;
-        NRF_LOG_INFO("Switching to -6");
-    }
-    else if (power_dBm <= 0)
-    {
-        m_desiredPaVal = 0x50;
-        NRF_LOG_INFO("Switching to 0");
-    }
-    else if (power_dBm <= 5)
-    {
-        m_desiredPaVal = 0x86;
-        NRF_LOG_INFO("Switching to 5");
-    }
-    else if (power_dBm <= 7)
-    {
-        m_desiredPaVal = 0xcd;
-        NRF_LOG_INFO("Switching to 7");
-    }
-    else if (power_dBm <= 10)
-    {
-        m_desiredPaVal = 0xc5;
-        NRF_LOG_INFO("Switching to 10");
-    }
-    else
-    {
-        m_desiredPaVal = 0xc0;
-        NRF_LOG_INFO("Switching to 12 (max)");
-    }
-    m_newPaTable = true;
+    m_desiredTxdBm = power_dBm;
+    m_newTxPower = true;
 }
 
 void cc1101_init(cc1101Mode_t desired)

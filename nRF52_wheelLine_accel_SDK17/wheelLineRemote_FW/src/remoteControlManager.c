@@ -44,8 +44,7 @@ static void runEnginePoll(machineState_t desiredState)
             case cc1101_packetTX:
                 {
                 // Send byte with desired state
-                uint8_t byteToSend = (uint8_t)desiredState;
-                cc1101_sendPacket(&byteToSend, 1);
+                cc1101_sendState(desiredState);
                 m_lastTx_ms = uptimeCounter_getUptimeMs();
             }
             break;

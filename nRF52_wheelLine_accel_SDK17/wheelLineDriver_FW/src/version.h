@@ -110,6 +110,9 @@ extern "C" {
 #define FWD_RELAY_PIN   FEATHER_GPIO4_A2
 #define REV_RELAY_PIN   FEATHER_GPIO5_A3
 
+#define UART_RX_PIN FEATHER_GPIO8_RX
+#define UART_TX_PIN FEATHER_GPIO6_TX
+
 #else
 #error "define a board please"
 #endif // #if COMPILE_FOR_PCA10040

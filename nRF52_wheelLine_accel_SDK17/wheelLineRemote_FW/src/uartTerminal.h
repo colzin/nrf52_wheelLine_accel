@@ -1,12 +1,12 @@
 /*
- * rttTerminal.h
+ * uartTerminal.h
  *
  *  Created on: Feb 6, 2024
  *      Author: Collin Moore
  */
 
-#ifndef SRC_RTTTERMINAL_H_
-#define SRC_RTTTERMINAL_H_
+#ifndef SRC_UARTTERMINAL_H_
+#define SRC_UARTTERMINAL_H_
 
 
 #ifdef __cplusplus
@@ -14,11 +14,11 @@ extern "C" {
 #endif
 
 
-void rttTerminal_init(void);
+void uartTerminal_init(void);
 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* SRC_RTTTERMINAL_H_ */
+#endif /* SRC_UARTTERMINAL_H_ */

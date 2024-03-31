@@ -136,6 +136,11 @@
 			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/lis2dh.h</locationURI>
 		</link>
 		<link>
+			<name>nRF52_common/pindefs.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/pindefs.h</locationURI>
+		</link>
+		<link>
 			<name>nRF52_common/pollers.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/pollers.c</locationURI>
@@ -144,6 +149,16 @@
 			<name>nRF52_common/pollers.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/pollers.h</locationURI>
+		</link>
+		<link>
+			<name>nRF52_common/rttTerminal.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/rttTerminal.c</locationURI>
+		</link>
+		<link>
+			<name>nRF52_common/rttTerminal.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/rttTerminal.h</locationURI>
 		</link>
 		<link>
 			<name>nRF52_common/segger_RTT_v788j</name>

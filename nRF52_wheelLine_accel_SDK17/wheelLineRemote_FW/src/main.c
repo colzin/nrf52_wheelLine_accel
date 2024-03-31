@@ -56,9 +56,14 @@ static void initializeInputs(void)
 { // Inputs to our system
 
     // Init any input pins, ADC, etc so we have those inputs set up and polled early.
+#ifdef UART_TX_PIN
+//    uartTerminal_init();
+#else
+    rttTerminal_init();
+#endif // #ifdef UART_TX_PIN && UART_RX_PIN
     rttTerminal_init();
     gpioDriver_init(); // Sets the machine state
-    lis2dh_init(); // on the Remote, not driver
+//    lis2dh_init(); // on the Remote, not driver
 //    cc1101_init(cc1101_packetRX); // Rx on driver, not remote
 }
 
@@ -84,14 +89,15 @@ int main(void)
     // Get logging up
     log_init();
 #if COMPILE_FOR_PCA10040
-    NRF_LOG_DEBUG("WheelLineDriver start, compiled for PCA10040");
+    NRF_LOG_DEBUG("%s start, compiled for PCA10040",DEVICE_NAME);
 #elif COMPILE_FOR_FEATHER
-    NRF_LOG_DEBUG("WheelLineDriver start, compiled for FEATHER");
+    NRF_LOG_DEBUG("%s start, compiled for FEATHER", DEVICE_NAME);
 #endif //
 
-    NRF_LOG_DEBUG("DEVid 0x%x %x, addr 0x%x %x", NRF_FICR->DEVICEID[1],
-                  NRF_FICR->DEVICEID[0],
-                  NRF_FICR->DEVICEADDR[1], NRF_FICR->DEVICEADDR[0]);
+//    NRF_LOG_DEBUG("DEVid 0x%x %x, addr 0x%x %x", NRF_FICR->DEVICEID[1],
+//                  NRF_FICR->DEVICEID[0],
+//                  NRF_FICR->DEVICEADDR[1], NRF_FICR->DEVICEADDR[0]);
+
     // Start uptime tick timer, so we know what time it is
     uptimeCounter_init();
     // Zero the pollers, so future calls can init
