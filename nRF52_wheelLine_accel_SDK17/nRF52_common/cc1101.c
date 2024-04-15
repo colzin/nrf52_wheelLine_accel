@@ -29,6 +29,13 @@ NRF_LOG_MODULE_REGISTER();
  *  Definitions
  ************************************************************************************/
 
+#define UART_PRINTS 1
+
+#if UART_PRINTS
+#include "uartTerminal.h"
+#include <stdio.h> // for snprintf
+#endif // #if UART_PRINTS
+
 // Chip status byte comes back on every SPI transaction's first byte
 // b7 clear if ready
 #define CHIPSTATUSBYTE_STATE(x)    ((x>>4)&0x07) // b6:4 state[2:0]
@@ -1580,6 +1587,13 @@ bool cc1101_sendState(uint8_t machState)
     ret &= cc1101_writeBurst(TXFIFO_REGADDR, pktBuf, PKT_LEN);
     ret &= cc1101_readSingleByte(TXBYTES_REGADDR, pktBuf);
     NRF_LOG_DEBUG("Sent packet of %d bytes at %d dBm to txfifo, TXYBTES says %d", PKT_LEN, m_desiredTxdBm, pktBuf[0]);
+    uint8_t strBytes[256];
+    int printlen = snprintf((char*)strBytes, sizeof(strBytes), "CC1101 TX: %d bytes at %d dBm\n", PKT_LEN,
+                            m_desiredTxdBm);
+    if (0 < printlen)
+    {
+        uartTerminal_enqueueToUSB(strBytes, (uint32_t)printlen);
+    }
     ret &= cc1101_strobe(STROBE_STX);
     return ret;
 

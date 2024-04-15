@@ -17,7 +17,7 @@ extern "C" {
 #define VERSION_MAJOR    0 // 1 byte
 #define VERSION_MINOR    0 // 1 byte
 #define VERSION_SUBMINOR 1 // 1 byte
-#define COMPILE_FOR_PCA10040 1
+#define COMPILE_FOR_PCA10040 0
 #if (!COMPILE_FOR_PCA10040)
 #define COMPILE_FOR_FEATHER 1
 #endif // #if (!COMPILE_FOR_PCA10040)
@@ -91,7 +91,7 @@ extern "C" {
  */
 #define SPI0_SDCARD_CS_GPIO     FEATHER_GPIO27_27 // connects to featherWing board
 #define SPI0_EINK_SRAM_CS_GPIO  FEATHER_GPIO30_30 // connects to featherWing board
-#define SPI0_EINK_CS_GPIO       FEATHER_GPIO31_31 // connects to featherWing board
+#define SPI0_EINK_CS_GPIO       FEATHER_GPIO31_A7 // connects to featherWing board
 #define EINK_DC_GPIO            FEATHER_GPIO11_11 // connects to featherWing board
 
 /* CC1101 pinout:
@@ -110,12 +110,12 @@ extern "C" {
 #define I2C1_SDA_PIN    FEATHER_GPIO25_SDA
 
 // GPIOs for buttons
-#define BUTTON_START_PIN    FEATHER_GPIO2_A0
-#define BUTTON_REV_PIN    FEATHER_GPIO3_A1
-#define BUTTON_FWD_PIN    FEATHER_GPIO4_A2
+#define BUTTON_START_PIN    FEATHER_OLED_BUTTONB_PIN
+#define BUTTON_REV_PIN    FEATHER_OLED_BUTTONA_PIN
+#define BUTTON_FWD_PIN    FEATHER_OLED_BUTTONC_PIN
 
-#define UART_RX_PIN FEATHER_GPIO8_RX
-#define UART_TX_PIN FEATHER_GPIO6_TX
+#define UART_RX_PIN FEATHER_GPIO8_USB_UART_RX
+#define UART_TX_PIN FEATHER_GPIO6_USB_UART_TX
 
 #else
 #error "define a board please"

@@ -79,9 +79,9 @@ extern "C" {
 #define FEATHER_GPIO12_SCK  12
 #define FEATHER_GPIO13_MOSI 13
 #define FEATHER_GPIO14_MISO 14 // Also TD[3]
-#define FEATHER_GPIO8_RX    8
-#define FEATHER_GPIO6_TX    6
-#define FEATHER_GPIO20_DFU  20
+#define FEATHER_GPIO8_USB_UART_RX    8
+#define FEATHER_GPIO6_USB_UART_TX    6
+#define FEATHER_GPIO20_DFU_BTN  20
 
 // Pins on right side (if microUSB is up)
 //#define FEATHER_VBAT_JST_PLUS
@@ -91,7 +91,7 @@ extern "C" {
 #define FEATHER_GPIO15_15   15 // Also TD[2]
 #define FEATHER_GPIO7_7     7
 #define FEATHER_GPIO11_11   11
-#define FEATHER_GPIO31_31   31 // AVOID using this pin externally, used for LiPo measurement // Button C on OLED screen
+#define FEATHER_GPIO31_A7   31 // AVOID using this pin externally, used for LiPo measurement // Button C on OLED screen
 #define FEATHER_GPIO30_30   30 // AVOID using this pin externally, used for LiPo measurement // Button B on OLED screen
 #define FEATHER_GPIO27_27   27 // Button A on OLED screen
 #define FEATHER_GPIO26_SCL  26
@@ -101,6 +101,10 @@ extern "C" {
 #define FEATHER_ONBOARD_GPIO10_NFC2 10
 #define FEATHER_ONBOARD_GPIO17_LED1 17
 #define FEATHER_ONBOARD_GPIO19_LED2 19
+
+#define FEATHER_OLED_BUTTONA_PIN FEATHER_GPIO27_27
+#define FEATHER_OLED_BUTTONB_PIN FEATHER_GPIO30_30
+#define FEATHER_OLED_BUTTONC_PIN FEATHER_GPIO31_A7
 
 #ifdef __cplusplus
 }

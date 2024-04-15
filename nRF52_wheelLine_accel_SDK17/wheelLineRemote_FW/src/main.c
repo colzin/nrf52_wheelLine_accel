@@ -24,6 +24,7 @@
 #include "rttTerminal.h"
 #include "sh1107I2C.h"
 #include <stdint.h>
+#include "uartTerminal.h"
 #include "uptimeCounter.h"
 #include "version.h"
 
@@ -56,15 +57,17 @@ static void initializeInputs(void)
 { // Inputs to our system
 
     // Init any input pins, ADC, etc so we have those inputs set up and polled early.
+
+    rttTerminal_init();
+
 #ifdef UART_TX_PIN
-//    uartTerminal_init();
-#else
-    rttTerminal_init();
+    uartTerminal_init();
 #endif // #ifdef UART_TX_PIN && UART_RX_PIN
-    rttTerminal_init();
+
     gpioDriver_init(); // Sets the machine state
 //    lis2dh_init(); // on the Remote, not driver
 //    cc1101_init(cc1101_packetRX); // Rx on driver, not remote
+
 }
 
 static void initializeOutputs(void)

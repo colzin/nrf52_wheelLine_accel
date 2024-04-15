@@ -14,6 +14,9 @@ extern "C" {
 #endif
 
 
+#include <sdk_errors.h>
+
+ret_code_t uartTerminal_enqueueToUSB(const uint8_t* pBytes, uint32_t numBytes);
 void uartTerminal_init(void);
 
 
