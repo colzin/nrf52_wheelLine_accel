@@ -174,7 +174,7 @@ static ret_code_t readRAM(uint8_t* pRxBuf, uint32_t len)
 
 static void setContrast(uint8_t level)
 {
-    NRF_LOG_DEBUG("Setting contrast to %d", level);
+//    NRF_LOG_DEBUG("Setting contrast to %d", level);
     writeCmd2Bytes(COMMAND_SETCONTRAST, level);
 }
 

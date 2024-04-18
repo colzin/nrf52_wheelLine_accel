@@ -86,19 +86,20 @@ static void defaultParser(uint8_t byte)
             ;
             globalInts_setMachineState(machState_runEngineHydIdle);
         break;
-        case 'p':
-            NRF_LOG_WARNING("Enter PA power")
-            ;
-            m_accumulator = 0;
-            m_negative = false;
-            m_parserState = parserState_receivingPower;
-        break;
         case 'r':
             NRF_LOG_WARNING("REbooting")
             ;
             // Delay for prints to finish
             nrf_delay_ms(2);
             NVIC_SystemReset();
+        break;
+        case 't':
+            case 'T':
+            NRF_LOG_WARNING("Enter CC1101 TX power")
+            ;
+            m_accumulator = 0;
+            m_negative = false;
+            m_parserState = parserState_receivingPower;
         break;
         case LF_CHAR:
             break;

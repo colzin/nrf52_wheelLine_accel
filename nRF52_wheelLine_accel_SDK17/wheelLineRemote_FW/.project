@@ -186,6 +186,16 @@
 			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/spi0.h</locationURI>
 		</link>
 		<link>
+			<name>nRF52_common/uartTerminal.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/uartTerminal.c</locationURI>
+		</link>
+		<link>
+			<name>nRF52_common/uartTerminal.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/uartTerminal.h</locationURI>
+		</link>
+		<link>
 			<name>nRF52_common/uptimeCounter.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/uptimeCounter.c</locationURI>

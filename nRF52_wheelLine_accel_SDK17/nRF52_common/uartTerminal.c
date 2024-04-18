@@ -130,7 +130,7 @@ static void trySend(void)
                 m_txInProgress = true; // Set quickly, before ISR clears
                 m_txDataReadIndex += numToSend;
                 m_txDataReadIndex %= (int32_t)sizeof(m_txData);
-                NRF_LOG_DEBUG("Started send of %d bytes", numToSend);
+//                NRF_LOG_DEBUG("Started send of %d bytes", numToSend);
             }
             else
             {
@@ -155,10 +155,10 @@ ret_code_t uartTerminal_enqueueToUSB(const uint8_t* pBytes, uint32_t numBytes)
         else
         {
             m_txData[m_txDataWriteIndex++] = pBytes[i];
-            m_txDataWriteIndex += (int32_t)sizeof(m_txData);
+            m_txDataWriteIndex %= (int32_t)sizeof(m_txData);
         }
     }
-    NRF_LOG_ERROR("Enqueued %d to TX", numBytes);
+//    NRF_LOG_INFO("Enqueued %d to TX", numBytes);
     // Done, success
     if (!m_txInProgress)
     {
@@ -190,6 +190,12 @@ static void parsePowerdigit(uint8_t byte)
             m_accumulator = -1 * m_accumulator;
         }
         NRF_LOG_INFO("Setting power to %d dBm", m_accumulator);
+        char strBuf[96];
+        int strLen = snprintf(strBuf, sizeof(strBuf), "Setting power to %d dBm\n", m_accumulator);
+        if (0 < strLen)
+        {
+            uartTerminal_enqueueToUSB((const uint8_t*)strBuf, (uint32_t)strLen);
+        }
         cc1101_setOutputPower((int8_t)m_accumulator);
         m_parserState = parserState_default;
     }
@@ -208,19 +214,16 @@ static void defaultParser(uint8_t byte)
         case 'i':
             NRF_LOG_WARNING("Setting CC1101 to IDLE state")
             ;
+            uartTerminal_enqueueToUSB((const uint8_t*)"Setting CC1101 to IDLE state\n",
+                                      strlen("Setting CC1101 to IDLE state\n"));
             cc1101_setIdle(true);
         break;
         case 'o':
             NRF_LOG_WARNING("Setting engine ON idle mode")
             ;
+            uartTerminal_enqueueToUSB((const uint8_t*)"Setting engine ON idle mode\n",
+                                      strlen("Setting engine ON idle mode\n"));
             globalInts_setMachineState(machState_runEngineHydIdle);
-        break;
-        case 'p':
-            NRF_LOG_WARNING("Enter PA power")
-            ;
-            m_accumulator = 0;
-            m_negative = false;
-            m_parserState = parserState_receivingPower;
         break;
         case 'r':
             NRF_LOG_WARNING("Rebooting")
@@ -229,13 +232,23 @@ static void defaultParser(uint8_t byte)
             nrf_delay_ms(2);
             NVIC_SystemReset();
         break;
+        case 't':
+            case 'T':
+            NRF_LOG_WARNING("Enter TX power")
+            ;
+            uartTerminal_enqueueToUSB((const uint8_t*)"Enter TX power:\n", strlen("Enter TX power:\n"));
+            m_accumulator = 0;
+            m_negative = false;
+            m_parserState = parserState_receivingPower;
+        break;
         case LF_CHAR:
             break;
         case CR_CHAR:
             break;
         default:
-            NRF_LOG_INFO("Enter i, o, p, r, ")
+            NRF_LOG_INFO("Enter i, o, p, r, t")
             ;
+            uartTerminal_enqueueToUSB((const uint8_t*)"Enter i, o, r, t\n", strlen("Enter i, o, r, t\n"));
         break;
     }
 }
@@ -298,7 +311,8 @@ static void uartPoll(void)
     }
     if (100 != m_uartEvent.type)
     {
-        NRF_LOG_ERROR("UART event error.type %d, mask 0x%x", m_uartEvent.type, m_uartEvent.data.error.error_mask);
+        NRF_LOG_ERROR("UART event error.type %d, mask 0x%x", m_uartEvent.type,
+                      m_uartEvent.data.error.error_mask);
         nrf_uarte_event_clear(m_uartInst.uarte.p_reg, NRF_UARTE_EVENT_TXDRDY);
         nrf_uarte_event_clear(m_uartInst.uarte.p_reg, NRF_UARTE_EVENT_RXTO);
         nrf_uarte_event_clear(m_uartInst.uarte.p_reg, NRF_UARTE_EVENT_ERROR);

@@ -62,12 +62,9 @@ static void initializeInputs(void)
 
 #ifdef UART_TX_PIN
     uartTerminal_init();
-#endif // #ifdef UART_TX_PIN && UART_RX_PIN
+#endif // #ifdef UART_TX_PIN
 
     gpioDriver_init(); // Sets the machine state
-//    lis2dh_init(); // on the Remote, not driver
-//    cc1101_init(cc1101_packetRX); // Rx on driver, not remote
-
 }
 
 static void initializeOutputs(void)
@@ -92,7 +89,7 @@ int main(void)
     // Get logging up
     log_init();
 #if COMPILE_FOR_PCA10040
-    NRF_LOG_DEBUG("%s start, compiled for PCA10040",DEVICE_NAME);
+    NRF_LOG_DEBUG("%s start, compiled for PCA10040", DEVICE_NAME);
 #elif COMPILE_FOR_FEATHER
     NRF_LOG_DEBUG("%s start, compiled for FEATHER", DEVICE_NAME);
 #endif //
@@ -111,7 +108,13 @@ int main(void)
     // Put version into a string on the screen
     char strBuf[8]; // Could have dots
     int strLen = snprintf(strBuf, sizeof(strBuf), "v%d.%d.%d", VERSION_MAJOR, VERSION_MINOR, VERSION_SUBMINOR);
-    _4digit7seg_writeStr(strBuf, (uint8_t)strLen);
+    if (0 < strLen)
+    {
+        _4digit7seg_writeStr(strBuf);
+#ifdef UART_TX_PIN
+        uartTerminal_enqueueToUSB((uint8_t*)strBuf, (uint32_t)strLen);
+#endif // #ifdef UART_TX_PIN
+    }
     // TODO start BLE for dropping to DFU, softDevice calls
 #if NRF_SDH_ENABLED && RUN_BLE
     bleStuff_init();

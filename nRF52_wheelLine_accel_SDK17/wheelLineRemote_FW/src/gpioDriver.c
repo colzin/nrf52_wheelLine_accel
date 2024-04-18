@@ -43,8 +43,17 @@ static bool isPressed(uint32_t pinNo)
     return true;
 }
 
+//static uint32_t m_lastP0;
+
 static void gpioDriverPoll(void)
 {
+
+//    uint32_t thisP0 = NRF_P0->IN;
+//    if (m_lastP0 != thisP0)
+//    {
+//        NRF_LOG_INFO("Changed from 0x%x to 0x%x", m_lastP0, thisP0);
+//        m_lastP0 = thisP0;
+//    }
     // Get button states
     machineState_t currentState = globalInts_getMachineState();
     switch (currentState)

@@ -47,8 +47,7 @@ chipStatusByteState_t cc1101_getLastState(void);
 // Low-level functions.
 void cc1101_setIdle(bool flushFifos);
 
-//bool cc1101_sendPacket(uint8_t* pBytes, uint8_t len);
-bool cc1101_sendState(uint8_t machState);
+bool cc1101_sendPacket(uint8_t byte);
 
 cc1101Mode_t cc1101_readMode(void);
 void cc1101_setOutputPower(int8_t power_dBm);

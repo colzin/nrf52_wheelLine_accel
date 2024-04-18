@@ -163,6 +163,8 @@ static const uint8_t sevensegfonttable[] =
  *  Variables
  ************************************************************************************/
 
+static bool m_initted = false;
+
 #if TEST_POLL_ITVL_MS
 static uint32_t m_lastPoll_ms;
 #else
@@ -179,6 +181,10 @@ static machineState_t m_lastMachState;
 
 void _4digit7seg_setDisplayState(dispState_t desired)
 {
+    if (!m_initted)
+    {
+        return;
+    }
     uint8_t buffer;
     switch (desired)
     {
@@ -208,6 +214,10 @@ void _4digit7seg_setDisplayState(dispState_t desired)
 
 void _4digit7seg_setBrightness(uint8_t zeroTo15)
 {
+    if (!m_initted)
+    {
+        return;
+    }
     uint8_t buffer = (uint8_t)(HT16K33_CMD_BRIGHTNESS | (zeroTo15 & 0x0F));
     i2c1_writeBytes(HT16K33_DEVADDR, &buffer, 1);
 }
@@ -283,8 +293,12 @@ static void clearBuffer(void)
     }
 }
 
-void _4digit7seg_writeStr(const char* buffer, uint8_t size)
-{
+void _4digit7seg_writeStr(const char* buffer)
+{ // Max we can handle is 4 digits, 1 colon, and 4 dots, so 9 total
+    if (!m_initted)
+    {
+        return;
+    }
     clearBuffer();
     // Increment through the full digits
     uint8_t bufIdx = 0, screenIdx = 0;
@@ -324,7 +338,6 @@ void _4digit7seg_writeStr(const char* buffer, uint8_t size)
             }
         }
     }
-
     // Send to the display
     writeDisplay();
 }
@@ -343,16 +356,16 @@ static void testPoll(void)
         switch (m_printerState)
         {
             case 1:
-                _4digit7seg_writeStr("off", 3);
+                _4digit7seg_writeStr("off");
             break;
             case 2:
-                _4digit7seg_writeStr("RT 3", 5);
+                _4digit7seg_writeStr("RT 3");
             break;
             case 3:
-                _4digit7seg_writeStr("lt: 4", 5);
+                _4digit7seg_writeStr("lt: 4");
             break;
             case 4:
-                _4digit7seg_writeStr("LT:56", 5);
+                _4digit7seg_writeStr("LT:56");
             break;
             default:
                 m_printerState = 0;
@@ -378,22 +391,22 @@ static void machineStatePoll(void)
         {
             // TODO update the display
             case machState_justPoweredOn:
-                _4digit7seg_writeStr("P ON", 4);
+                _4digit7seg_writeStr("P ON");
             break;
             case machState_startEngine:
-                _4digit7seg_writeStr("STRT", 4);
+                _4digit7seg_writeStr("STRT");
             break;
             case machState_runEngineHydIdle:
-                _4digit7seg_writeStr("IdLE", 4);
+                _4digit7seg_writeStr("IdLE");
             break;
             case machState_runEngineHydFwd:
-                _4digit7seg_writeStr("FVVD", 4);
+                _4digit7seg_writeStr("FVVD");
             break;
             case machState_runEngineHydRev:
-                _4digit7seg_writeStr("REV", 3);
+                _4digit7seg_writeStr("REV");
             break;
             case machState_killEngine:
-                _4digit7seg_writeStr("kill", 4);
+                _4digit7seg_writeStr("kill");
             break;
         }
         m_lastMachState = stateNow;
@@ -421,6 +434,7 @@ void _4digit7seg_init(void)
     if (NRF_SUCCESS != ret)
     {
         NRF_LOG_ERROR("7seg not found at address 0x%x, bailing out", HT16K33_DEVADDR);
+        m_initted = false;
         return;
     }
 
@@ -457,6 +471,8 @@ void _4digit7seg_init(void)
     _4digit7seg_setDisplayState(dispState_onSolid);
 
     _4digit7seg_setBrightness(10); // 0 is still on
+
+    m_initted = true;
 
 #if POLL_ITVL_MS
     m_lastPoll_ms = uptimeCounter_getUptimeMs();

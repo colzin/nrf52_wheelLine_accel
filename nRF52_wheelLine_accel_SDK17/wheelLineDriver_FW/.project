@@ -186,6 +186,16 @@
 			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/spi0.h</locationURI>
 		</link>
 		<link>
+			<name>nRF52_common/uartTerminal.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/uartTerminal.c</locationURI>
+		</link>
+		<link>
+			<name>nRF52_common/uartTerminal.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/uartTerminal.h</locationURI>
+		</link>
+		<link>
 			<name>nRF52_common/uptimeCounter.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/uptimeCounter.c</locationURI>
@@ -489,6 +499,11 @@
 			<name>nRF5_SDK_17.1.0_ddde560_custom/external/fprintf/nrf_fprintf_format.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/external/fprintf/nrf_fprintf_format.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/nrfx_config.h</name>
@@ -1044,6 +1059,16 @@
 			<name>nRF5_SDK_17.1.0_ddde560_custom/config/nrf52832/armgcc/generic_gcc_nrf52.ld</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/config/nrf52832/armgcc/generic_gcc_nrf52.ld</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_uart.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_uart.c</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_uart.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_uart.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/drivers/include</name>

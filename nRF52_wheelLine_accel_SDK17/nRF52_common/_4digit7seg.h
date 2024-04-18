@@ -22,15 +22,13 @@ typedef enum
     dispState_blink2Hz,
     dispState_blink1Hz,
     dispState_blink0_5Hz,
-}dispState_t;
+} dispState_t;
 
 void _4digit7seg_setDisplayState(dispState_t desired);
 
 void _4digit7seg_setBrightness(uint8_t zeroTo15);
 
-void _4digit7seg_writeStr(const char* buffer, uint8_t size);
-
-void _4digit7seg_writeDigitAscii(uint8_t d, uint8_t c, bool dot);
+void _4digit7seg_writeStr(const char* buffer);
 
 void _4digit7seg_init(void);
 

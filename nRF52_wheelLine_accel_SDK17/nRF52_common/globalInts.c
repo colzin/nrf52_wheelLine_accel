@@ -7,6 +7,12 @@
 
 #include "globalInts.h"
 
+#include "version.h" // To choose UART or not
+#ifdef UART_TX_PIN
+#include "uartTerminal.h"
+#include <stdio.h> // for snprintf
+#endif // #ifdef UART_TX_PIN
+
 #define NRF_LOG_MODULE_NAME globalInts
 #include "nrf_log.h"
 NRF_LOG_MODULE_REGISTER();
@@ -48,6 +54,15 @@ void globalInts_setMachineState(machineState_t st)
         if (st != m_machState)
         {
             NRF_LOG_INFO("Machine state from %d to %d", m_machState, st);
+#ifdef UART_TX_PIN
+            char strBuf[64];
+            int strLen = snprintf((char*)strBuf, sizeof(strBuf), "  Set state to %d\n", st);
+            if (0 < strLen)
+            {
+                uartTerminal_enqueueToUSB((const uint8_t*)strBuf, (uint32_t)strLen);
+            }
+#endif // #ifdef UART_TX_PIN
+
         }
         m_machState = st;
     }

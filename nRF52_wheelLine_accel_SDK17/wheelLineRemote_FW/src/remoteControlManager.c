@@ -20,7 +20,7 @@ NRF_LOG_MODULE_REGISTER();
 /*************************************************************************************
  *  Definitions
  ************************************************************************************/
-#define TX_ITVL_MS 500 // Send this often
+#define TX_ITVL_MS 1000 // Send this often
 /*************************************************************************************
  *  Variables
  ************************************************************************************/
@@ -44,7 +44,7 @@ static void runEnginePoll(machineState_t desiredState)
             case cc1101_packetTX:
                 {
                 // Send byte with desired state
-                cc1101_sendState(desiredState);
+                cc1101_sendPacket((uint8_t)desiredState);
                 m_lastTx_ms = uptimeCounter_getUptimeMs();
             }
             break;

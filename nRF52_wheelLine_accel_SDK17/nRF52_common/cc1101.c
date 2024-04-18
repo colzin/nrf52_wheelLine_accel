@@ -7,6 +7,8 @@
 
 #include "cc1101.h"
 
+#include "_4digit7seg.h"
+
 #include "ev1527SPI.h" // For Async TX
 
 #include "globalInts.h" // To set machine state
@@ -286,7 +288,7 @@ typedef enum
     ccaMode_always = 0,
     ccaMode_RssiBelowThreshold,
     ccaMode_ulessReceiving,
-    ccaMode_RssiBelowThresholdUnlessRx
+    ccaMode_RssiBelowThresholdUnlessRx // This is default
 } mcsm1_ccaMode_t;
 #define MCSM1_RXOFF_MODE(x)     ((x<<2)&0xC0) // b3:2 rxoff_mode
 typedef enum
@@ -491,11 +493,15 @@ typedef enum
 #define PKT_SIZE_FIXED 1 // TODO switch to variable later to save power.
 #if PKT_SIZE_FIXED
 #define PKT_LEN 3
+
 #else
 #error "Define packet size or type"
 #endif // #if PKT_SIZE_FIXED
 
 #define STATUS_POLL_ITVL_MS 100 // Datasheet says not to spam SPI with traffic
+
+#define TX_TIMEOUT_MS (STATUS_POLL_ITVL_MS*2+3) // Should send in this time
+#define RX_AFTER_TX_TIMEOUT_MS (STATUS_POLL_ITVL_MS+TX_TIMEOUT_MS+3) // Should hear back in this much time
 
 typedef enum
 {
@@ -540,6 +546,8 @@ static uint8_t m_rxPacketBuffer[PKT_LEN];
 static packetRxSettings_t m_rxSettings;
 
 static cc1101Mode_t m_opMode;
+
+static uint8_t m_sendState;
 
 static bool m_newTxPower;
 static int8_t m_desiredTxdBm;
@@ -788,16 +796,22 @@ static bool cc1101_selfTest(void)
 
 void cc1101_setIdle(bool flushFifos)
 {
-    cc1101_strobe(STROBE_SIDLE); // Tell it to idle
-    uint8_t marcState;
-    cc1101_readSingleByte(MARCSTATE_REGADDR, &marcState);
-    while (marcState_idle != marcState)
+    if (statusByteState_idle != CHIPSTATUSBYTE_STATE(m_lastChipStatusByte))
     {
-        nrf_delay_us(100);
+        NRF_LOG_DEBUG("Go from state %s to idle", m_statuses[CHIPSTATUSBYTE_STATE(m_lastChipStatusByte)]);
+        cc1101_strobe(STROBE_SIDLE); // Tell it to idle
+        uint8_t marcState;
         cc1101_readSingleByte(MARCSTATE_REGADDR, &marcState);
+        while (marcState_idle != marcState)
+        {
+            nrf_delay_us(100);
+            cc1101_readSingleByte(MARCSTATE_REGADDR, &marcState);
+        } // Make sure it goes into idle
     }
+    // Now, if flushFifos, send those strobes
     if (flushFifos)
     {
+        NRF_LOG_DEBUG("Flushing RX and TX fifos");
         cc1101_strobe(STROBE_FLUSHTXFIFO); // Can flush in idle
         cc1101_strobe(STROBE_FLUSHRXFIFO); // Can flush in idle
     }
@@ -879,86 +893,10 @@ static void setTxPower(int8_t tx_dBm)
     m_newTxPower = false;
 }
 
-// From TI studio Nov 13, 2023 for 3kBaud at 433MHz ASK
-static void cc1101_initASKTx_myStudio(void)
-{
-    cc1101_writeSingleByte(IOCFG2_REGADDR, 0x29);
-    cc1101_writeSingleByte(IOCFG1_REGADDR, 0x2e);
-//    cc1101_writeSingleByte(IOCFG0, 0x06);
-    cc1101_writeSingleByte(IOCFG0_REGADDR, 0x3F);
-    cc1101_writeSingleByte(FIFOTHR_REGADDR, 0x07); // TODO is this what we want?
-    cc1101_writeSingleByte(SYNC1_REGADDR, 0xd3);
-    cc1101_writeSingleByte(SYNC0_REGADDR, 0x91);
-//    cc1101_writeSingleByte(PKTLEN, 0xff);
-    cc1101_writeSingleByte(PKTLEN_REGADDR, 0x10);
-    cc1101_writeSingleByte(PKTCTRL1_REGADDR, 0x04);
-    cc1101_writeSingleByte(PKTCTRL0_REGADDR, 0x05);
-    cc1101_writeSingleByte(PKTCTRL0_REGADDR, 0x04);
-    cc1101_writeSingleByte(ADDR_REGADDR, 0x00);
-    cc1101_writeSingleByte(CHANNR_REGADDR, 0x00);
-//    cc1101_writeSingleByte(FSCTRL1_REGADDR, 0x06);
-    cc1101_writeSingleByte(FSCTRL1_REGADDR, 0x0F);
-    cc1101_writeSingleByte(FSCTRL0_REGADDR, 0x00);
-    cc1101_writeSingleByte(FREQ2_REGADDR, 0x10);
-//    cc1101_writeSingleByte(FREQ1_REGADDR, 0xA7);
-    cc1101_writeSingleByte(FREQ1_REGADDR, 0xA8);
-//    cc1101_writeSingleByte(FREQ0_REGADDR, 0x62);
-    cc1101_writeSingleByte(FREQ0_REGADDR, 0x5E);
-//    cc1101_writeSingleByte(MDMCFG4_REGADDR, 0xF6);
-    cc1101_writeSingleByte(MDMCFG4_REGADDR, 0x86);
-    cc1101_writeSingleByte(MDMCFG3_REGADDR, 0xE4);
-//    cc1101_writeSingleByte(MDMCFG2_REGADDR, 0x37);
-    cc1101_writeSingleByte(MDMCFG2_REGADDR, 0x30);
-//    cc1101_writeSingleByte(MDMCFG1_REGADDR, 0x00);
-    cc1101_writeSingleByte(MDMCFG1_REGADDR, 0x02);
-    cc1101_writeSingleByte(MDMCFG0_REGADDR, 0xF8);
-    cc1101_writeSingleByte(DEVIATN_REGADDR, 0x47);
-    cc1101_writeSingleByte(MCSM2_REGADDR, 0x07);
-    cc1101_writeSingleByte(MCSM1_REGADDR, 0x30);
-//    cc1101_writeSingleByte(MCSM0_REGADDR, 0x18);
-    cc1101_writeSingleByte(MCSM0_REGADDR, 0x04);
-//    cc1101_writeSingleByte(FOCCFG_REGADDR, 0x16);
-    cc1101_writeSingleByte(FOCCFG_REGADDR, 0x36);
-    cc1101_writeSingleByte(BSCFG_REGADDR, 0x6C);
-    cc1101_writeSingleByte(AGCCTRL2_REGADDR, 0x03);
-    cc1101_writeSingleByte(AGCCTRL1_REGADDR, 0x40);
-    cc1101_writeSingleByte(AGCCTRL0_REGADDR, 0x91);
-    cc1101_writeSingleByte(WOREVT1_REGADDR, 0x87);
-    cc1101_writeSingleByte(WOREVT0_REGADDR, 0x6B);
-    cc1101_writeSingleByte(WORCTRL_REGADDR, 0xF8);
-    cc1101_writeSingleByte(FREND1_REGADDR, 0x56);
-    cc1101_writeSingleByte(FREND0_REGADDR, 0x11);
-    cc1101_writeSingleByte(FSCAL3_REGADDR, 0xE9);
-    cc1101_writeSingleByte(FSCAL2_REGADDR, 0x2A);
-    cc1101_writeSingleByte(FSCAL1_REGADDR, 0x00);
-    cc1101_writeSingleByte(FSCAL0_REGADDR, 0x1F);
-    cc1101_writeSingleByte(RCCTRL1_REGADDR, 0x41);
-    cc1101_writeSingleByte(RCCTRL0_REGADDR, 0x00);
-    cc1101_writeSingleByte(FSTEST_REGADDR, 0x59);
-    cc1101_writeSingleByte(PTEST_REGADDR, 0x7F);
-    cc1101_writeSingleByte(AGCTEST_REGADDR, 0x3F);
-//    cc1101_writeSingleByte(TEST2_REGADDR, 0x81);
-    cc1101_writeSingleByte(TEST2_REGADDR, 0x88);
-//    cc1101_writeSingleByte(TEST1_REGADDR, 0x35);
-    cc1101_writeSingleByte(TEST1_REGADDR, 0x31);
-    cc1101_writeSingleByte(TEST0_REGADDR, 0x09);
-    uint8_t paTableBytes[8] = { 0x00, 0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-    cc1101_writeBurst(PATABLE_REGADDR, paTableBytes, 8);
-
-    // TODO customize IO pins
-//    cc1101_writeSingleByte(IOCFG2, 0x0B);     //serial clock.synchronous to the data in synchronous serial mode
-//        cc1101_writeSingleByte(IOCFG0, 0x06); //asserts when sync word has been sent/received, and de-asserts at the end of the packet
-
-    cc1101_setIdle(true);
-//    cc1101_flushTxFifo();
-//    cc1101_flushRxFifo();
-}
-
 static void setup433PacketTx(void)
 {
     if (statusByteState_idle != CHIPSTATUSBYTE_STATE(m_lastChipStatusByte))
     {
-        NRF_LOG_DEBUG("CC1101 in state %d, not idle, go to idle:", CHIPSTATUSBYTE_STATE(m_lastChipStatusByte));
         cc1101_setIdle(true); // Idle it before writing configs
     }
 
@@ -989,7 +927,17 @@ static void setup433PacketTx(void)
     cc1101_writeSingleByte(MDMCFG3_REGADDR, 0x83); //Modem Configuration
     cc1101_writeSingleByte(MDMCFG2_REGADDR, 0x33); //Modem Configuration
     cc1101_writeSingleByte(DEVIATN_REGADDR, 0x15); //Modem Deviation Setting
-    cc1101_writeSingleByte(MCSM0_REGADDR, 0x18);   //Main Radio Control State Machine Configuration
+
+    // Added MCSM1 to go automatically from TX to RX when sending.
+    uint8_t u8 = MCSM1_CCA_MODE(ccaMode_RssiBelowThresholdUnlessRx);
+    u8 |= MCSM1_RXOFF_MODE(rxOff_idle); // Go to Idle when done with RX
+    u8 |= MCSM1_TXOFF_MODE(txOff_Rx); // Go to TX when done with RX
+    cc1101_writeSingleByte(MCSM1_REGADDR, u8);
+    // generated: cc1101_writeSingleByte(MCSM0_REGADDR, 0x18);   //Main Radio Control State Machine Configuration
+    // Generated had autocal when idle to RX or TX 0x10, and PO_TIMEOUT of 0b10 (0x08)
+    u8 = MCSM0_FS_AUTOCAL(faAutocal_idleToRxOrTx);
+    u8 |= MCSM0_PO_TIMEOUT(poTimeout_16counts);
+    cc1101_writeSingleByte(MCSM0_REGADDR, u8);   //Main Radio Control State Machine Configuration
     cc1101_writeSingleByte(FOCCFG_REGADDR, 0x14);  //Frequency Offset Compensation Configuration
     cc1101_writeSingleByte(AGCCTRL0_REGADDR, 0x92);  //AGC Control
     cc1101_writeSingleByte(WORCTRL_REGADDR, 0xFB); //Wake On Radio Control
@@ -1005,7 +953,7 @@ static void setup433PacketTx(void)
 //    uint8_t paTableBytes[8] = { 0x00, 0x1D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; // 0x1D for -15dBm
 //    uint8_t paTableBytes[8] = { 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; // 0x03 for -30dBm TX power
 //    cc1101_writeBurst(PATABLE_REGADDR, paTableBytes, 8);
-    setTxPower(30);
+    setTxPower(-20);
 
     NRF_LOG_WARNING("CC1101 setup433PacketTx done, TX dBm %d", m_desiredTxdBm);
 }
@@ -1140,6 +1088,15 @@ static void setupAsyncTx(void)
     cc1101_writeBurst(PATABLE_REGADDR, paTableBytes, 8);
 }
 
+static void initPacketReceiver(void)
+{
+    m_rxSettings.pPacket = m_rxPacketBuffer;
+    m_rxSettings.readFromChip = true;
+    m_rxSettings.packetBufIndex = 0;
+    m_rxSettings.packetBufLen = sizeof(m_rxPacketBuffer);
+    m_rxSettings.rxState = packetRxState_awaitingPacketStart;
+}
+
 static void readInSettings(packetRxSettings_t* pSettings)
 {
     uint8_t regByte;
@@ -1251,16 +1208,95 @@ static void readVariablePacket(packetRxSettings_t* pSettings, uint8_t numFifoByt
     }
 }
 
-static void parsePacketAndLQI(int8_t RSSI, int8_t LQI, bool crcOK, uint8_t* pData, uint32_t len)
+static void parsePacketAndLQI(int8_t RSSI, uint8_t LQI, bool crcOK, uint8_t* pData, uint32_t len)
 {
-    NRF_LOG_INFO("  RX %d-byte packet, RSSI %d, LQI %d, CRC %d.", len, RSSI, LQI, crcOK);
-    if (1 <= len)
+//    NRF_LOG_INFO("  RX %d-byte packet, RSSI %d, LQI %d, CRC %d.", len, RSSI, LQI, crcOK);
+#ifdef UART_TX_PIN
+    char strBuf[256];
+    int strLen;
+
+//    strLen = snprintf(strBuf, sizeof(strBuf), "%d", RSSI);
+//    _4digit7seg_writeStr(strBuf);
+
+//    strLen = snprintf(strBuf, sizeof(strBuf), "RX %d-byte packet, RSSI %d, LQI %d, CRC %d:\n", len, RSSI,
+//                      LQI,
+//                      crcOK);
+//    if (0 < strLen)
+//    {
+//        uartTerminal_enqueueToUSB((const uint8_t*)strBuf, (uint32_t)strLen);
+//    }
+#endif // #ifdef UART_TX_PIN
+
+    if (1 == len)
     {
-        NRF_LOG_INFO("  TX power %d dBm", (int8_t )pData[0]);
+        NRF_LOG_INFO(" RX 1-byte packet, TX power %d, RSSI %d, LQI %d, CRC %d.", (int8_t )pData[0], len, RSSI, LQI,
+                     crcOK);
+#ifdef UART_TX_PIN
+        strLen = snprintf(strBuf, sizeof(strBuf), " RX 1-byte packet, TX power %d, RSSI %d, LQI %d, CRC %d.\n",
+                          (int8_t)pData[0],
+                          RSSI, LQI, crcOK);
+        if (0 < strLen)
+        {
+            uartTerminal_enqueueToUSB((const uint8_t*)strBuf, (uint32_t)strLen);
+        }
+#endif // #ifdef UART_TX_PIN
+
     }
     if (2 <= len)
-    {
-        globalInts_setMachineState((machineState_t)pData[1]);
+    { // 2nd byte holds the command on command, or ACKer's RSSI of our first command
+        int8_t theirTxdBm = (int8_t)pData[0];
+        cc1101_setOutputPower(theirTxdBm);
+        switch (m_opMode)
+        {
+            case cc1101_packetRX:
+                // If we are the motor driver, we receive the state to set
+                globalInts_setMachineState((machineState_t)pData[1]);
+                NRF_LOG_INFO(" RX command to mode %d. Sending ack.", (machineState_t )pData[1])
+                ;
+                NRF_LOG_INFO(" They sent at %d, RSSI %d, LQI %d, CRC %d.", theirTxdBm, RSSI, LQI, crcOK)
+                ;
+#ifdef UART_TX_PIN
+                strLen = snprintf(strBuf, sizeof(strBuf), " RX CMD %d, TX %d dBm, RSSI %d, LQI %d, CRC %d.\n",
+                                  pData[1],
+                                  (int8_t)pData[0],
+                                  RSSI,
+                                  LQI, crcOK);
+                if (0 < strLen)
+                {
+                    uartTerminal_enqueueToUSB((const uint8_t*)strBuf, (uint32_t)strLen);
+                }
+#endif // #ifdef UART_TX_PIN
+
+                // Send an ACK when we RX a packet
+                cc1101_sendPacket((uint8_t)RSSI);
+            break;
+            case cc1101_packetTX:
+                // If we are the remote controller, we receive the RSSI that the driver heard our packet at.
+
+                NRF_LOG_INFO(" RX ACK packet. Receiver heard us at %d.", (int8_t )pData[1])
+                ;
+                NRF_LOG_INFO(" They sent at %d, RSSI %d, LQI %d, CRC %d.", theirTxdBm, RSSI, LQI, crcOK)
+                ;
+#ifdef UART_TX_PIN
+                strLen = snprintf(strBuf, sizeof(strBuf),
+                                  " RX ACK of CMD, received at %d. ACK TX power %d, RSSI %d, LQI %d, CRC %d.\n",
+                                  (int8_t)pData[1],
+                                  (int8_t)pData[0],
+                                  RSSI,
+                                  LQI,
+                                  crcOK);
+                if (0 < strLen)
+                {
+                    uartTerminal_enqueueToUSB((const uint8_t*)strBuf, (uint32_t)strLen);
+                }
+#endif // #ifdef UART_TX_PIN
+            break;
+            default:
+                NRF_LOG_INFO("  RX %d-byte packet, RSSI %d, LQI %d, CRC %d.", len, RSSI, LQI, crcOK)
+                ;
+            break;
+        }
+
     }
 }
 static void tryReceivePacket(packetRxSettings_t* pSettings)
@@ -1277,7 +1313,7 @@ static void tryReceivePacket(packetRxSettings_t* pSettings)
     }
     if (pSettings->packetBufIndex == pSettings->expectedPacketLen)
     {
-        NRF_LOG_ERROR("Doesn't make sense, resetting receiver settings");
+        NRF_LOG_ERROR("Doesn't make sense, resetting receive state");
         pSettings->rxState = packetRxState_awaitingPacketStart;
         pSettings->packetBufIndex = 0;
     }
@@ -1335,7 +1371,7 @@ static void tryReceivePacket(packetRxSettings_t* pSettings)
             }
 
         }
-        cc1101_setIdle(true);
+//        cc1101_setIdle(true);
         m_rxSettings.rxState = packetRxState_awaitingPacketStart;
         m_rxSettings.packetBufIndex = 0;
     }
@@ -1343,7 +1379,8 @@ static void tryReceivePacket(packetRxSettings_t* pSettings)
     { // If not in finished state, check if length is equal, that would be an error
         if (m_rxSettings.packetBufIndex >= m_rxSettings.expectedPacketLen)
         {
-            NRF_LOG_WARNING("Received %d of %d bytes, but state still %d, reset parser", m_rxSettings.packetBufIndex,
+            NRF_LOG_WARNING("Received %d of %d bytes, but state still %d, reset parser",
+                            m_rxSettings.packetBufIndex,
                             m_rxSettings.expectedPacketLen,
                             m_rxSettings.rxState);
             // reset parser state
@@ -1369,7 +1406,7 @@ static void asyncTxPoll(chipStatusByteState_t currentState)
             }
         break;
         case statusByteState_rx:
-            NRF_LOG_ERROR("Should not be in RX state, flushing and idling")
+            NRF_LOG_ERROR("Should not be in RX, idling")
             ;
             cc1101_setIdle(true);
         break;
@@ -1380,12 +1417,12 @@ static void asyncTxPoll(chipStatusByteState_t currentState)
             cc1101_strobe(STROBE_STX);
         break;
         case statusByteState_rxOverflow:
-            NRF_LOG_ERROR("Detected RX overflow, flushing and idling")
+            NRF_LOG_ERROR("Detected RX overflow, idling")
             ;
             cc1101_setIdle(true);
         break;
         case statusByteState_txUnderflow:
-            NRF_LOG_ERROR("Detected TX underflow, flushing and idling")
+            NRF_LOG_ERROR("Detected TX underflow, idling")
             ;
             cc1101_setIdle(true);
         break;
@@ -1400,57 +1437,93 @@ static void packetRxPoll(chipStatusByteState_t currentState)
     switch (currentState)
     {
         case statusByteState_tx:
-            NRF_LOG_ERROR("In TX state, should NOT be here. Flushing and idling.")
-            ;
-            cc1101_setIdle(true);
+            if (1 == m_sendState)
+            {
+                // Gets into this state from someone telling it to send a packet.
+                if (m_inState_ms >= TX_TIMEOUT_MS)
+                { // Shouldn't take a long time to send
+                    m_sendState = 0;
+                    NRF_LOG_ERROR("Timed out in TX state, idling")
+                    ;
+                    cc1101_setIdle(true);
+                }
+            }
+            else
+            {
+                NRF_LOG_ERROR("In TX state, should NOT be here, idling.")
+                ;
+                cc1101_setIdle(true);
+            }
         break;
         case statusByteState_rx:
             // If in receiving state
-            //            NRF_LOG_DEBUG("RX Check for Received")
-            //            ;
-            //            tryReceivePacket(&m_rxSettings);
-            if (m_inState_ms >= 5000)
-            { // It should transition to IDLE when done receiving a packet
-                NRF_LOG_ERROR("Timed out in RX state, flushing and idling")
-                ;
-                cc1101_setIdle(true);
+            if (0 == m_inState_ms)
+            { // Reset RX parser on entry, then try and receive packet
                 m_rxSettings.rxState = packetRxState_awaitingPacketStart;
                 m_rxSettings.packetBufIndex = 0;
+            }
+            if (m_inState_ms >= 5000)
+            { // It should transition to IDLE when done receiving a packet
+                NRF_LOG_WARNING("Timed out in RX state, idling")
+                ;
+#ifdef UART_TX_PIN
+                uartTerminal_enqueueToUSB((uint8_t*)"Timed out in RX, idling\n",
+                                          strlen("Timed out in RX, idling\n"));
+#endif // #ifdef UART_TX_PIN
+                cc1101_setIdle(true);
             }
         break;
         case statusByteState_idle:
             // Usually here because we received a packet, or because we errored and came here
             //            NRF_LOG_DEBUG("Idle Check for Received")
             //            ;
-            tryReceivePacket(&m_rxSettings);
             // In RX mode, switch to RX state ASAP
             if (m_newTxPower)
             {
                 setTxPower(m_desiredTxdBm);
                 m_newTxPower = false;
             }
-            NRF_LOG_DEBUG("poller start RX:")
-            ;
-            cc1101_strobe(STROBE_FLUSHRXFIFO); // Can flush in idle
-            cc1101_strobe(STROBE_FLUSHTXFIFO); // Can flush in idle
-            cc1101_strobe(STROBE_SRX);
+            if (0 == m_inState_ms)
+            { // Reset RX parser on entry, then try and receive packet
+                m_rxSettings.rxState = packetRxState_awaitingPacketStart;
+                m_rxSettings.packetBufIndex = 0;
+            }
+            m_sendState = 0;
+            // Check if we have received a packet
+            tryReceivePacket(&m_rxSettings);
+
+            if (1 == m_sendState)
+            {
+//                NRF_LOG_INFO("sendState 1, it should go to TX");
+                cc1101_strobe(STROBE_NOP);
+                NRF_LOG_INFO("is it in TX?");
+            }
+            else
+            {
+                NRF_LOG_DEBUG("poller start RX:")
+                ;
+                cc1101_strobe(STROBE_FLUSHRXFIFO); // Can flush in idle
+                cc1101_strobe(STROBE_FLUSHTXFIFO); // Can flush in idle
+                cc1101_strobe(STROBE_SRX);
+            }
         break;
         case statusByteState_rxOverflow:
-            NRF_LOG_ERROR("Detected RX overflow, flushing and idling")
+            NRF_LOG_ERROR("Detected RX overflow,idling")
             ;
             cc1101_setIdle(true);
         break;
         case statusByteState_txUnderflow:
-            NRF_LOG_ERROR("Detected TX underflow, flushing and idling")
+            NRF_LOG_ERROR("Detected TX underflow, idling")
             ;
             cc1101_setIdle(true);
         break;
         default:
-            NRF_LOG_WARNING("State 0x%x", CHIPSTATUSBYTE_STATE(m_lastChipStatusByte))
-            ;
-            NRF_LOG_ERROR("Flushing and idling")
-            ;
-            cc1101_setIdle(true);
+            if (m_inState_ms > 1000)
+            {
+                NRF_LOG_WARNING("State 0x%x, idling", CHIPSTATUSBYTE_STATE(m_lastChipStatusByte))
+                ;
+                cc1101_setIdle(true);
+            }
         break;
     }
 }
@@ -1461,17 +1534,22 @@ static void packetTxPoll(chipStatusByteState_t currentState)
     {
         case statusByteState_tx:
             // Gets into this state from someone telling it to send a packet.
-            if (m_inState_ms >= 500)
+            if (m_inState_ms >= TX_TIMEOUT_MS)
             { // Shouldn't take a long time to send, TODO find time
-                NRF_LOG_ERROR("Timed out in TX state, flushing and idling")
+                NRF_LOG_ERROR("Timed out in TX state, idling")
                 ;
                 cc1101_setIdle(true);
             }
         break;
         case statusByteState_rx:
-            NRF_LOG_ERROR("Should not be in RX state, flushing and idling")
-            ;
-            cc1101_setIdle(true);
+            if ((m_sendState && (RX_AFTER_TX_TIMEOUT_MS < m_inState_ms))
+                    || (0 == m_sendState))
+            {
+                NRF_LOG_ERROR("packetTx should not be in RX state, sendState %d, in for %d ms, idling", m_sendState,
+                              m_inState_ms)
+                ;
+                cc1101_setIdle(true);
+            }
         break;
         case statusByteState_idle:
             // Idle until someone calls sendPacket
@@ -1480,19 +1558,32 @@ static void packetTxPoll(chipStatusByteState_t currentState)
                 setTxPower(m_desiredTxdBm);
                 m_newTxPower = false;
             }
+            if (0 == m_inState_ms)
+            { // Reset RX parser on entry, then try and receive packet
+                m_rxSettings.rxState = packetRxState_awaitingPacketStart;
+                m_rxSettings.packetBufIndex = 0;
+                // Usually here because we received a packet
+                tryReceivePacket(&m_rxSettings);
+            }
+            // Stay in idle until next TX command triggers TX, then TX to RX, then idle again.
         break;
         case statusByteState_rxOverflow:
-            NRF_LOG_ERROR("Detected RX overflow, flushing and idling")
+            NRF_LOG_ERROR("Detected RX overflow, idling")
             ;
             cc1101_setIdle(true);
         break;
         case statusByteState_txUnderflow:
-            NRF_LOG_ERROR("Detected TX underflow, flushing and idling")
+            NRF_LOG_ERROR("Detected TX underflow, idling")
             ;
             cc1101_setIdle(true);
         break;
         default:
-            //ignore for now
+            if (m_inState_ms > 1000)
+            {
+                NRF_LOG_WARNING("State 0x%x, idling", CHIPSTATUSBYTE_STATE(m_lastChipStatusByte))
+                ;
+                cc1101_setIdle(true);
+            }
         break;
     }
 }
@@ -1578,23 +1669,37 @@ if (uptimeCounter_elapsedSince(m_lastTx_ms) >= TX_TEST_ITVL_MS)
 //    return ret;
 //}
 
-bool cc1101_sendState(uint8_t machState)
+bool cc1101_sendPacket(uint8_t byte)
 {
     uint8_t pktBuf[PKT_LEN];
     pktBuf[0] = (uint8_t)m_desiredTxdBm;
-    pktBuf[1] = machState;
+    pktBuf[1] = byte;
     bool ret = true;
     ret &= cc1101_writeBurst(TXFIFO_REGADDR, pktBuf, PKT_LEN);
     ret &= cc1101_readSingleByte(TXBYTES_REGADDR, pktBuf);
-    NRF_LOG_DEBUG("Sent packet of %d bytes at %d dBm to txfifo, TXYBTES says %d", PKT_LEN, m_desiredTxdBm, pktBuf[0]);
-    uint8_t strBytes[256];
-    int printlen = snprintf((char*)strBytes, sizeof(strBytes), "CC1101 TX: %d bytes at %d dBm\n", PKT_LEN,
-                            m_desiredTxdBm);
-    if (0 < printlen)
+    if (PKT_LEN == pktBuf[0])
     {
-        uartTerminal_enqueueToUSB(strBytes, (uint32_t)printlen);
+#if verbose_tx
+        NRF_LOG_DEBUG("Sending packet of %d bytes at %d dBm.", PKT_LEN, m_desiredTxdBm);
+#ifdef UART_TX_PIN
+        uint8_t strBytes[256];
+        int printlen = snprintf((char*)strBytes, sizeof(strBytes), "CC1101 sending %d bytes at %d dBm\n", PKT_LEN,
+                                m_desiredTxdBm);
+        if (0 < printlen)
+        {
+            uartTerminal_enqueueToUSB(strBytes, (uint32_t)printlen);
+        }
+#endif // #ifdef UART_TX_PIN
+#endif // #if verbose_tx
+    }
+    else
+    {
+        NRF_LOG_WARNING("Sending packet of %d bytes at %d dBm to txfifo, BUT TXYBTES says %d", PKT_LEN,
+                        m_desiredTxdBm,
+                        pktBuf[0]);
     }
     ret &= cc1101_strobe(STROBE_STX);
+    m_sendState++;
     return ret;
 
 }
@@ -1630,20 +1735,20 @@ void cc1101_init(cc1101Mode_t desired)
 //    cc1101_initASKTx_myStudio();
     m_opMode = cc1101_unknownMode;
 
+    ev1527SPI_turnOff(SPI2_MOSI_PIN); // Default to off.
+
     switch (desired)
     {
         case cc1101_packetRX:
-            m_rxSettings.pPacket = m_rxPacketBuffer;
-            m_rxSettings.readFromChip = true;
-            m_rxSettings.packetBufIndex = 0;
-            m_rxSettings.packetBufLen = sizeof(m_rxPacketBuffer);
-            m_rxSettings.rxState = packetRxState_awaitingPacketStart;
+            initPacketReceiver();
             setup433PacketTx(); // Same settings for Rx side
             m_opMode = cc1101_packetRX;
         break;
         case cc1101_packetTX:
+            initPacketReceiver();
             setup433PacketTx();
             m_opMode = cc1101_packetTX;
+            m_sendState = 0;
         break;
         case cc1101_asyncTX:
             // do NOT set up the MOSI pin to drive yet, until we de-init the default CC1101 drive as output.

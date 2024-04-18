@@ -18,7 +18,7 @@ extern "C" {
 #define VERSION_MINOR    0 // 1 byte
 #define VERSION_SUBMINOR 1 // 1 byte
 
-#define COMPILE_FOR_PCA10040 0
+#define COMPILE_FOR_PCA10040 1
 #if (!COMPILE_FOR_PCA10040)
 #define COMPILE_FOR_FEATHER 1
 #endif // #if (!COMPILE_FOR_PCA10040)
@@ -36,8 +36,8 @@ extern "C" {
 #define HEARTBEAT_LED_GPIO_NUM PCA10040_GPIO17_LED_1
 
 // Use the pins for either EV1527 format
-#define I2S_LRCLK_PIN   UNUSED_PIN0 // Need a dummy pin
-#define I2S_SCK_PIN     UNUSED_PIN1 // Need a dummy pin
+#define I2S_LRCLK_PIN   PCA10040_GPIO5_UART_RTS // Need a dummy pin
+#define I2S_SCK_PIN     PCA10040_GPIO7_UART_CTS // Need a dummy pin
 #define I2S_SDOUT_PIN   PCA10040_GPIO4
 
 #define SPI2_SCK_PIN    PCA10040_GPIO7_UART_CTS // Use an un-useable pin, we don't care about this signal.
@@ -63,6 +63,12 @@ extern "C" {
 #define I2C1_SCL_PIN    PCA10040_GPIO28
 #define I2C1_SDA_PIN    PCA10040_GPIO29
 
+
+#define KILLOPEN_RELAY_PIN  PCA10040_GPIO30
+#define START_RELAY_PIN PCA10040_GPIO18_LED_2
+#define FWD_RELAY_PIN   PCA10040_GPIO19_LED_3
+#define REV_RELAY_PIN   PCA10040_GPIO20_LED_4
+
 #elif COMPILE_FOR_FEATHER
 #warning "Compiling for nRF52 Bluefruit Feather"
 #define HEARTBEAT_LED_GPIO_NUM FEATHER_ONBOARD_GPIO17_LED1
@@ -71,7 +77,7 @@ extern "C" {
 #define EV1527_RADIO_TX_PIN   FEATHER_GPIO20_DFU
 // For EV1527SPI
 #define SPI2_SCK_PIN    FEATHER_GPIO15_15 // Needs to be a real pin, use any unused pin not near radio(s)
-#define SPI2_MOSI_PIN   FEATHER_GPIO20_DFU
+#define SPI2_MOSI_PIN   FEATHER_GPIO20_DFU_BTN
 
 // SPI0 for e-ink, CC1101, etc...
 #define SPI0_MISO_PIN   FEATHER_GPIO14_MISO
@@ -87,7 +93,7 @@ extern "C" {
  */
 #define SPI0_SDCARD_CS_GPIO     FEATHER_GPIO27_27 // connects to featherWing board
 #define SPI0_EINK_SRAM_CS_GPIO  FEATHER_GPIO30_30 // connects to featherWing board
-#define SPI0_EINK_CS_GPIO       FEATHER_GPIO31_31 // connects to featherWing board
+#define SPI0_EINK_CS_GPIO       FEATHER_GPIO31_A7 // connects to featherWing board
 #define EINK_DC_GPIO            FEATHER_GPIO11_11 // connects to featherWing board
 
 /* CC1101 pinout:
@@ -110,8 +116,8 @@ extern "C" {
 #define FWD_RELAY_PIN   FEATHER_GPIO4_A2
 #define REV_RELAY_PIN   FEATHER_GPIO5_A3
 
-#define UART_RX_PIN FEATHER_GPIO8_RX
-#define UART_TX_PIN FEATHER_GPIO6_TX
+#define UART_RX_PIN FEATHER_GPIO8_USB_UART_RX
+#define UART_TX_PIN FEATHER_GPIO6_USB_UART_TX
 
 #else
 #error "define a board please"

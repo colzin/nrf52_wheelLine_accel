@@ -17,7 +17,6 @@
 #include "ev1527SPI.h"
 
 #include "heartbeatBlink.h"
-#include "lis2dh.h"
 #include "pollers.h"
 #include "relayGpios.h"
 #include "rttTerminal.h"
@@ -56,8 +55,12 @@ static void initializeInputs(void)
 
     // Init any input pins, ADC, etc so we have those inputs set up and polled early.
     rttTerminal_init();
-    lis2dh_init();
-    cc1101_init(cc1101_packetRX);
+
+#ifdef UART_TX_PIN
+    uartTerminal_init();
+#endif // #ifdef UART_TX_PIN
+
+    cc1101_init(cc1101_packetRX); // We listen by default
 }
 
 static void initializeOutputs(void)
@@ -95,7 +98,7 @@ int main(void)
     // Put version into a string on the screen
     char strBuf[8]; // Could have dots
     int strLen = snprintf(strBuf, sizeof(strBuf), "v%d.%d.%d", VERSION_MAJOR, VERSION_MINOR, VERSION_SUBMINOR);
-    _4digit7seg_writeStr(strBuf, (uint8_t)strLen);
+    _4digit7seg_writeStr(strBuf);
     // TODO start BLE for dropping to DFU, softDevice calls
 #if NRF_SDH_ENABLED && RUN_BLE
     bleStuff_init();

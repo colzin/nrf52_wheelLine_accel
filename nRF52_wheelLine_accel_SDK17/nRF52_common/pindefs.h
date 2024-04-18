@@ -17,8 +17,10 @@ extern "C" {
 ////////////////////////////   PINS on nRF52 DK PCA10040
 
 #define PCA10040_HAS_XTAL 1 // XTAL on PCA10040
+#ifndef PCA10040_HAS_XTAL
 #define PCA10040_XTAL_PIN_1 0 // p0.00 used for 32.768kHz XTAL on PCA10040
 #define PCA10040_XTAL_PIN_2 1 // p0.01 used for 32.768kHz XTAL on PCA10040
+#endif // #ifndef PCA10040_HAS_XTAL
 
 #define PCA10040_GPIO2     2 // p0.02 routed to a pin on PCA10040, otherwise unused
 #define PCA10040_GPIO3     3 // p0.03 routed to a pin on PCA10040, otherwise unused
@@ -41,13 +43,13 @@ extern "C" {
 #define PCA10040_GPIO15_BUTTON_3    15
 #define PCA10040_GPIO16_BUTTON_4    16
 
-#define PCA10040_GPIO17_IOEXP_INT 17
-
-// PCA10040 LEDs on 17, 18, 19, 29, active low, drive low to light
-#define PCA10040_GPIO17_LED_1   17
+// PCA10040 LEDs on 17, 18, 19, 20EV, active low, drive low to light
+#define PCA10040_GPIO17_LED_1   17 // p0.17 is also IOEXP nINT line
 #define PCA10040_GPIO18_LED_2   18
 #define PCA10040_GPIO19_LED_3   19
 #define PCA10040_GPIO20_LED_4   20
+
+// p0.21 is nRESET, do NOT use for GPIO, leave as nRST
 
 #define PCA10040_GPIO22 22
 #define PCA10040_GPIO23 23
@@ -63,7 +65,7 @@ extern "C" {
 #define PCA10040_GPIO31 31
 
 // P0.00, p0.01 not broken out, used for XTAL
-#define FEATHER_HAS_XTAL 1 // 
+#define FEATHER_HAS_XTAL 1
 
 // Pins on left side (if microUSB is up)
 #define FEATHER_GPIO21_nRST_Rst NRF52_RESET_PIN // p0.21 used as nRST usually

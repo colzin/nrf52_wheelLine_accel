@@ -74,6 +74,7 @@ static void setGpios(machineState_t state)
         break;
     }
 }
+
 static void relayGpiosPoll(void)
 {
     machineState_t currentState = globalInts_getMachineState();

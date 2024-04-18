@@ -19,6 +19,8 @@ void ev1527_setSendState(machineState_t currentState);
 
 void ev1527SPI_init(uint8_t txPin);
 
+void ev1527SPI_turnOff(uint8_t txPin);
+
 #ifdef __cplusplus
 }
 #endif

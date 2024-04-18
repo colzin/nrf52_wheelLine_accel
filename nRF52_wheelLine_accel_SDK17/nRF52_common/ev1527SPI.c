@@ -228,11 +228,11 @@ static void spiIsrHandler(nrfx_spi_evt_t const* p_event, void* p_context)
     }
 }
 
-static void setupRadioOutputs(void)
+static void setupRadioOutput(uint8_t txPin)
 {
 // LEDs are active low, but radio is active high
-    NRF_P0->OUTCLR = (1UL << SPI2_MOSI_PIN);
-    nrf_gpio_cfg_output(SPI2_MOSI_PIN);
+    NRF_P0->OUTCLR = (1UL << txPin);
+    nrf_gpio_cfg_output(txPin);
 }
 static uint32_t setBits(uint32_t numBits, uint8_t* pArray, uint32_t bitIndex)
 {
@@ -474,7 +474,7 @@ void ev1527_setSendState(machineState_t currentState)
 
 void ev1527SPI_init(uint8_t txPin)
 {
-    setupRadioOutputs();
+    setupRadioOutput(txPin);
 // Set up I2S to send data
 //    nrfx_spi_uninit(&m_spi);
     nrfx_spi_config_t config;
@@ -511,5 +511,12 @@ void ev1527SPI_init(uint8_t txPin)
     g_lastTx_ms = uptimeCounter_getUptimeMs();
 #endif // #if TX_TEST_ITVL_MS
 
+}
+
+void ev1527SPI_turnOff(uint8_t txPin)
+{
+    setupRadioOutput(txPin);
+    nrfx_spi_uninit(&m_spi);
+    setupRadioOutput(txPin);
 }
 #endif // #if NRFX_SPI_ENABLED
