@@ -60,7 +60,6 @@ static void parsePowerdigit(uint8_t byte)
         {
             m_accumulator = -1 * m_accumulator;
         }
-        NRF_LOG_INFO("Setting power to %d dBm", m_accumulator);
         cc1101_setOutputPower((int8_t)m_accumulator);
         m_parserState = parserState_default;
     }

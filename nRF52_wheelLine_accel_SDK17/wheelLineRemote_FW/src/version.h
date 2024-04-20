@@ -35,12 +35,10 @@ extern "C" {
 #define HEARTBEAT_LED_GPIO_NUM PCA10040_GPIO17_LED_1
 
 // Use the pins for either EV1527 format
-#define I2S_LRCLK_PIN   UNUSED_PIN0 // Need a dummy pin
-#define I2S_SCK_PIN     UNUSED_PIN1 // Need a dummy pin
-#define I2S_SDOUT_PIN   PCA10040_GPIO4
-
 #define SPI2_SCK_PIN    PCA10040_GPIO7_UART_CTS // Use an un-useable pin, we don't care about this signal.
 #define SPI2_MOSI_PIN   PCA10040_GPIO4
+
+#define CC1101_GDO2_PIN   PCA10040_GPIO5_UART_RTS
 
 // SPI0 for e-ink, CC1101, etc...
 #define SPI0_MISO_PIN   PCA10040_GPIO12
@@ -76,6 +74,8 @@ extern "C" {
 // For EV1527SPI
 #define SPI2_SCK_PIN    FEATHER_GPIO16_16
 #define SPI2_MOSI_PIN   FEATHER_GPIO15_15
+
+#define CC1101_GDO2_PIN   FEATHER_GPIO28_A4
 
 // SPI0 for e-ink, CC1101, etc...
 #define SPI0_MISO_PIN   FEATHER_GPIO14_MISO
