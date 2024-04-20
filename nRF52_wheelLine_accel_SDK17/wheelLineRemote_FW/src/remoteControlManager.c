@@ -20,7 +20,7 @@ NRF_LOG_MODULE_REGISTER();
 /*************************************************************************************
  *  Definitions
  ************************************************************************************/
-#define TX_ITVL_MS 1000 // Send this often
+#define TX_ITVL_MS 2000 // Send this often
 /*************************************************************************************
  *  Variables
  ************************************************************************************/
@@ -36,7 +36,8 @@ static machineState_t m_lastState;
 
 static void runEnginePoll(machineState_t desiredState)
 {
-    if (uptimeCounter_elapsedSince(m_lastTx_ms) >= TX_ITVL_MS)
+    uint32_t msSinceLastTx = uptimeCounter_elapsedSince(m_lastTx_ms);
+    if (TX_ITVL_MS < msSinceLastTx && CC1101_MIN_SEND_ITVL_MS < msSinceLastTx)
     {
         cc1101Mode_t mode = cc1101_readMode();
         switch (mode)

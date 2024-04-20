@@ -498,11 +498,6 @@ typedef enum
 #error "Define packet size or type"
 #endif // #if PKT_SIZE_FIXED
 
-#define STATUS_POLL_ITVL_MS 100 // Datasheet says not to spam SPI with traffic
-
-#define TX_TIMEOUT_MS (STATUS_POLL_ITVL_MS*2+3) // Should send in this time
-#define RX_AFTER_TX_TIMEOUT_MS (STATUS_POLL_ITVL_MS+TX_TIMEOUT_MS+3) // Should hear back in this much time
-
 typedef enum
 {
     packetRxState_awaitingPacketStart,
@@ -547,8 +542,6 @@ static packetRxSettings_t m_rxSettings;
 
 static cc1101Mode_t m_opMode;
 
-static uint8_t m_sendState;
-
 static bool m_newTxPower;
 static int8_t m_desiredTxdBm;
 
@@ -575,13 +568,12 @@ const char* m_statuses[statusByteState_txUnderflow + 1]
 
 static void updateStatus(uint8_t newVal)
 {
-
     if (CHIPSTATUSBYTE_STATE(m_lastChipStatusByte) != CHIPSTATUSBYTE_STATE(newVal))
     {
         NRF_LOG_DEBUG("Status from %s to %s", m_statuses[CHIPSTATUSBYTE_STATE(m_lastChipStatusByte)],
                       m_statuses[CHIPSTATUSBYTE_STATE(newVal)]);
-        m_lastChipStatusByte = newVal;
     }
+    m_lastChipStatusByte = newVal;
 }
 
 chipStatusByteState_t cc1101_getLastState(void)
@@ -618,9 +610,17 @@ static bool cc1101_strobe(uint8_t address)
     xfer.rx_length = 1;
     xfer.tx_length = 1;
     ret_code_t ret = spi0_xfer(spi0_cc1101, &xfer, false);
-    updateStatus(sres);
-//    NRF_LOG_INFO("Strobed 0x%x, read Status 0x%x", address, sres);
-    return ret == NRF_SUCCESS ? true : false;
+    if (NRF_SUCCESS == ret)
+    {
+        NRF_LOG_INFO("Strobed 0x%x, read Status 0x%x", address, sres);
+        updateStatus(sres);
+        return true;
+    }
+    else
+    {
+        NRF_LOG_ERROR("Error %d strobing 0x%x", ret, address);
+        return false;
+    }
 }
 
 static bool cc1101_writeSingleByte(uint8_t address, uint8_t data)
@@ -635,9 +635,17 @@ static bool cc1101_writeSingleByte(uint8_t address, uint8_t data)
     xfer.rx_length = 1;
     xfer.tx_length = 2;
     ret_code_t ret = spi0_xfer(spi0_cc1101, &xfer, false);
-    updateStatus(sres);
-//    NRF_LOG_INFO("Wrote address 0x%x to 0x%x, read Status 0x%x", address, data, sres);
-    return ret == NRF_SUCCESS ? true : false;
+    if (NRF_SUCCESS == ret)
+    {
+        //    NRF_LOG_INFO("Wrote address 0x%x to 0x%x, read Status 0x%x", address, data, sres);
+        updateStatus(sres);
+        return true;
+    }
+    else
+    {
+        NRF_LOG_ERROR("Error %d writing reg 0x%x with byte 0x%x", ret, address, data);
+        return false;
+    }
 }
 
 #if 1
@@ -651,9 +659,26 @@ static bool cc1101_writeBurst(uint8_t startAddress, uint8_t* data, uint32_t len)
     xfer.rx_length = 1;
     xfer.tx_length = 1;
     ret_code_t ret = spi0_xfer(spi0_cc1101, &xfer, true);
-    updateStatus(sres);
-    ret |= spi0_write(spi0_cc1101, data, len, false);
-    return ret == NRF_SUCCESS ? true : false;
+    if (NRF_SUCCESS == ret)
+    {
+        updateStatus(sres);
+    }
+    else
+    {
+        NRF_LOG_ERROR("Error %d writing startAddress 0x%x", ret, startAddress);
+        return false;
+    }
+    // Else continue
+    ret = spi0_write(spi0_cc1101, data, len, false);
+    if (NRF_SUCCESS == ret)
+    {
+        return true;
+    }
+    else
+    {
+        NRF_LOG_ERROR("Error %d writing %d regs ", ret, len);
+        return false;
+    }
 }
 #else
 static bool cc1101_writeBurst(uint8_t startAddress, uint8_t* data, uint32_t len)
@@ -718,6 +743,7 @@ static bool cc1101_reboot(void)
         NRF_LOG_ERROR("Did not detect CC1101, retries exceeded");
         return false;
     }
+#if REBOOT_CC1101
 //    NRF_LOG_INFO("Checking for CC1101 to be rebooted:");
     // Issue software reset
     bool ret = cc1101_strobe(STROBE_SRES);
@@ -727,7 +753,7 @@ static bool cc1101_reboot(void)
     }
     // Wait for it to reboot. Datasheet says max of
     retries = 100;
-//    ms_timestamp = uptimeCounter_getUptimeMs();
+    ms_timestamp = uptimeCounter_getUptimeMs();
     while (retries)
     { //  drive CS low, see if it responds by driving MISO low. Can do this by reading status byte
         cc1101_strobe(STROBE_NOP);
@@ -739,8 +765,8 @@ static bool cc1101_reboot(void)
         }
         else
         {
-//            NRF_LOG_INFO("Detected CC1101 ready after %d ms, %d retries left", uptimeCounter_elapsedSince(ms_timestamp),
-//                         retries);
+            NRF_LOG_INFO("Detected CC1101 ready after %d ms, %d retries left", uptimeCounter_elapsedSince(ms_timestamp),
+                         retries);
             break;
         }
     }
@@ -749,6 +775,7 @@ static bool cc1101_reboot(void)
         NRF_LOG_ERROR("Did not detect CC1101, retries exceeded");
         return false;
     }
+#endif // #if REBOOT_CC1101
     return true;
 }
 
@@ -819,69 +846,89 @@ void cc1101_setIdle(bool flushFifos)
 }
 
 static void setTxPower(int8_t tx_dBm)
-{
+{ // DN013 says don't use 0x61 to 0x6F
     uint8_t desiredPaVal;
+    if (tx_dBm <= -62)
+    {
+        m_desiredTxdBm = -62;
+        desiredPaVal = 0x00;
+    }
+    if (tx_dBm <= -38)
+    {
+        m_desiredTxdBm = -38;
+        desiredPaVal = 0x30;
+    }
     if (tx_dBm <= -30)
     {
         m_desiredTxdBm = -30;
-        desiredPaVal = 0x03;
-        NRF_LOG_INFO("Switching to -30");
+        desiredPaVal = 0x12;
+    }
+    else if (tx_dBm <= -25)
+    {
+        m_desiredTxdBm = -25;
+        desiredPaVal = 0x07;
     }
     else if (tx_dBm <= -20)
     {
         m_desiredTxdBm = -20;
-        desiredPaVal = 0x17;
-        NRF_LOG_INFO("Switching to -20");
+        desiredPaVal = 0x0E;
     }
     else if (tx_dBm <= -15)
     {
         m_desiredTxdBm = -15;
-        desiredPaVal = 0x1d;
-        NRF_LOG_INFO("Switching to -15");
+        desiredPaVal = 0x1D;
     }
     else if (tx_dBm <= -10)
     {
         m_desiredTxdBm = -10;
-        desiredPaVal = 0x26;
-        NRF_LOG_INFO("Switching to -10");
+        desiredPaVal = 0x34;
     }
     else if (tx_dBm <= -6)
     {
         m_desiredTxdBm = -6;
-        desiredPaVal = 0x37;
-        NRF_LOG_INFO("Switching to -6");
+        desiredPaVal = 0x2A;
     }
     else if (tx_dBm <= 0)
     {
         m_desiredTxdBm = 0;
-        desiredPaVal = 0x50;
-        NRF_LOG_INFO("Switching to 0");
+        desiredPaVal = 0x60;
     }
     else if (tx_dBm <= 5)
     {
         m_desiredTxdBm = 5;
-        desiredPaVal = 0x86;
-        NRF_LOG_INFO("Switching to 5");
+        desiredPaVal = 0x84;
     }
     else if (tx_dBm <= 7)
     {
         m_desiredTxdBm = 7;
-        desiredPaVal = 0xcd;
-        NRF_LOG_INFO("Switching to 7");
+        desiredPaVal = 0xC8;
     }
-    else if (tx_dBm <= 10)
+    else if (tx_dBm <= 9)
     {
-        m_desiredTxdBm = 10;
-        desiredPaVal = 0xc5;
-        NRF_LOG_INFO("Switching to 10");
+        m_desiredTxdBm = 9;
+        desiredPaVal = 0xC1;
     }
     else
     {
-        m_desiredTxdBm = 12;
-        desiredPaVal = 0xc0;
-        NRF_LOG_INFO("Switching to 12 (max)");
+        m_desiredTxdBm = 10;
+        desiredPaVal = 0xC0;
     }
+
+    NRF_LOG_INFO("Switching to %d dBm", m_desiredTxdBm);
+#ifdef UART_TX_PIN
+    char strBuf[96];
+    int strLen = snprintf(strBuf, sizeof(strBuf), "Switching to TX %d dBm\n", m_desiredTxdBm);
+    if (0 < strLen)
+    {
+        uartTerminal_enqueueToUSB((const uint8_t*)strBuf, (uint32_t)strLen);
+    }
+#endif // #ifdef UART_TX_PIN
+
+#if ASK_433
     uint8_t paTableBytes[8] = { 0x00, desiredPaVal, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+#else
+    uint8_t paTableBytes[8] = { desiredPaVal, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+#endif // #if ASK_433
     if (cc1101_writeBurst(PATABLE_REGADDR, paTableBytes, 8))
     {
         NRF_LOG_INFO("Set PATABLE");
@@ -893,7 +940,8 @@ static void setTxPower(int8_t tx_dBm)
     m_newTxPower = false;
 }
 
-static void setup433PacketTx(void)
+#if ASK_433
+static void setupPacketRadio(int8_t desiredTx_dBm)
 {
     if (statusByteState_idle != CHIPSTATUSBYTE_STATE(m_lastChipStatusByte))
     {
@@ -901,10 +949,15 @@ static void setup433PacketTx(void)
     }
 
     /* Rf settings for CC1101, exported Feb 06, 2024
-     *432.99MHz, XTAL 26MHz
+     * 432.99MHz, XTAL 26MHz
      */
 //    cc1101_writeSingleByte(IOCFG0_REGADDR, 0x06);  //GDO0 Output Pin Configuration
+#if GDO2_STATUS
+    cc1101_writeSingleByte(IOCFG2_REGADDR, IOCFGx_GDOx_CFG(gdox_));
+#else
     cc1101_writeSingleByte(IOCFG2_REGADDR, IOCFGx_GDOx_CFG(gdox_3state));
+#endif // #if GDO2_STATUS
+
     cc1101_writeSingleByte(IOCFG1_REGADDR, IOCFGx_GDOx_CFG(gdox_3state));
     cc1101_writeSingleByte(IOCFG0_REGADDR, IOCFGx_GDOx_CFG(gdox_3state));
 
@@ -953,10 +1006,426 @@ static void setup433PacketTx(void)
 //    uint8_t paTableBytes[8] = { 0x00, 0x1D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; // 0x1D for -15dBm
 //    uint8_t paTableBytes[8] = { 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; // 0x03 for -30dBm TX power
 //    cc1101_writeBurst(PATABLE_REGADDR, paTableBytes, 8);
-    setTxPower(-20);
+    setTxPower(desiredTx_dBm);
 
     NRF_LOG_WARNING("CC1101 setup433PacketTx done, TX dBm %d", m_desiredTxdBm);
 }
+#endif // #if ASK_433
+
+#if SENSITIVE_433
+static void setupPacketRadio(int8_t desiredTx_dBm)
+{
+    if (statusByteState_idle != CHIPSTATUSBYTE_STATE(m_lastChipStatusByte))
+    {
+        cc1101_setIdle(true); // Idle it before writing configs
+    }
+
+    /* Rf settings for CC1101, exported April 17, 2024
+     * 432.99MHz, XTAL 26MHz
+     */
+    //    cc1101_writeSingleByte(IOCFG0_REGADDR, 0x06);  //GDO0 Output Pin Configuration
+#if GDO2_STATUS
+    // Set up GDO2 to assert at beginning and de-assert at end of packet.
+    cc1101_writeSingleByte(IOCFG2_REGADDR, IOCFGx_GDOx_CFG(gdox_syncwordToEndOfPkt));
+#else
+    cc1101_writeSingleByte(IOCFG2_REGADDR, IOCFGx_GDOx_CFG(gdox_3state));
+#endif // #if GDO2_STATUS
+    // Set all pins to tri-state
+    cc1101_writeSingleByte(IOCFG1_REGADDR, IOCFGx_GDOx_CFG(gdox_3state));
+    cc1101_writeSingleByte(IOCFG0_REGADDR, IOCFGx_GDOx_CFG(gdox_3state));
+
+    cc1101_writeSingleByte(FIFOTHR_REGADDR, 0x47);   //RX FIFO and TX FIFO Thresholds
+    cc1101_writeSingleByte(SYNC1_REGADDR, 0xD3);
+    cc1101_writeSingleByte(SYNC0_REGADDR, 0x91);
+#if PKT_SIZE_FIXED
+    cc1101_writeSingleByte(PKTLEN_REGADDR, PKT_LEN);
+#endif // #if PKT_SIZE_FIXED
+
+    uint8_t u8 = PKTCTRL1_APPEND_STATUS;
+    u8 |= PKTCTRL1_ADDR_CHK(addrChk_none); // No addresses yet
+    cc1101_writeSingleByte(PKTCTRL1_REGADDR, u8);
+
+    // normal mode in b5:4
+    //    cc1101_writeSingleByte(PKTCTRL0_REGADDR, 0x05);   //Packet Automation Control
+    u8 = 0; // TODO test PKTCTRL0_WHITE_DATA;
+    u8 |= PKTCTRL0_CRC_EN;
+#if PKT_SIZE_FIXED
+    u8 |= PKTCTRL0_LENGTH_CFG(pktCtrl0Len_fixed);
+    cc1101_writeSingleByte(PKTCTRL0_REGADDR, u8);   //Packet Automation Control
+#else
+#error "define"
+#endif // #if PKT_SIZE_FIXED
+
+    cc1101_writeSingleByte(ADDR_REGADDR, 0x00);
+    cc1101_writeSingleByte(CHANNR_REGADDR, 0x00);
+
+    cc1101_writeSingleByte(FSCTRL1_REGADDR, 0x06);   //Frequency Synthesizer Control
+    cc1101_writeSingleByte(FSCTRL0_REGADDR, 0x00);
+    // Want 433.0MHz, because boards are that freq
+    cc1101_writeSingleByte(FREQ2_REGADDR, 0x10);   //Frequency Control Word, High Byte
+    cc1101_writeSingleByte(FREQ1_REGADDR, 0xA7);   //Frequency Control Word, Middle Byte
+    cc1101_writeSingleByte(FREQ0_REGADDR, 0x62);   //Frequency Control Word, Low Byte
+
+    cc1101_writeSingleByte(MDMCFG4_REGADDR, 0xF5);   //Modem Configuration
+    cc1101_writeSingleByte(MDMCFG3_REGADDR, 0x83);   //Modem Configuration
+//    Set mode to GFSK
+    cc1101_writeSingleByte(MDMCFG2_REGADDR, 0x13);   //Modem Configuration
+    cc1101_writeSingleByte(MDMCFG1_REGADDR, 0x22);
+    cc1101_writeSingleByte(MDMCFG0_REGADDR, 0xF8);
+    cc1101_writeSingleByte(DEVIATN_REGADDR, 0x31);   //Modem Deviation Setting
+    cc1101_writeSingleByte(MCSM2_REGADDR, 0x07);
+
+    // Added MCSM1 to go automatically from TX to RX when sending.
+    u8 = MCSM1_CCA_MODE(ccaMode_RssiBelowThresholdUnlessRx);
+    u8 |= MCSM1_RXOFF_MODE(rxOff_idle); // Go to Idle when done with RX
+    u8 |= MCSM1_TXOFF_MODE(txOff_idle); // Go to TX when done with RX
+    cc1101_writeSingleByte(MCSM1_REGADDR, u8);
+
+    // generated: cc1101_writeSingleByte(MCSM0_REGADDR, 0x18);   //Main Radio Control State Machine Configuration
+    // Generated had autocal when idle to RX or TX 0x10, and PO_TIMEOUT of 0b10 (0x08)
+//    u8 = MCSM0_FS_AUTOCAL(faAutocal_idleToRxOrTx);
+//    u8 |= MCSM0_PO_TIMEOUT(poTimeout_64counts);
+//    cc1101_writeSingleByte(MCSM0_REGADDR, u8);   //Main Radio Control State Machine Configuration
+    cc1101_writeSingleByte(MCSM0_REGADDR, 0x18);
+
+    cc1101_writeSingleByte(FOCCFG_REGADDR, 0x16);   //Frequency Offset Compensation Configuration
+    cc1101_writeSingleByte(BSCFG_REGADDR, 0x6C);
+    cc1101_writeSingleByte(AGCCTRL2_REGADDR, 0x03);
+    cc1101_writeSingleByte(AGCCTRL1_REGADDR, 0x40);
+    cc1101_writeSingleByte(AGCCTRL0_REGADDR, 0x91);
+    cc1101_writeSingleByte(WOREVT1_REGADDR, 0x87);
+    cc1101_writeSingleByte(WOREVT0_REGADDR, 0x6B);
+    cc1101_writeSingleByte(WORCTRL_REGADDR, 0xFB);   //Wake On Radio Control
+    cc1101_writeSingleByte(FREND1_REGADDR, 0x56);
+    cc1101_writeSingleByte(FREND0_REGADDR, 0x10);
+    cc1101_writeSingleByte(FSCAL3_REGADDR, 0xE9);   //Frequency Synthesizer Calibration
+    cc1101_writeSingleByte(FSCAL2_REGADDR, 0x2A);   //Frequency Synthesizer Calibration
+    cc1101_writeSingleByte(FSCAL1_REGADDR, 0x00);   //Frequency Synthesizer Calibration
+    cc1101_writeSingleByte(FSCAL0_REGADDR, 0x1F);   //Frequency Synthesizer Calibration
+    cc1101_writeSingleByte(RCCTRL1_REGADDR, 0x41);
+    cc1101_writeSingleByte(RCCTRL0_REGADDR, 0x00);
+    cc1101_writeSingleByte(FSTEST_REGADDR, 0x59);
+    cc1101_writeSingleByte(PTEST_REGADDR, 0x7F);
+    cc1101_writeSingleByte(AGCTEST_REGADDR, 0x3F);
+    cc1101_writeSingleByte(TEST2_REGADDR, 0x81);   //Various Test Settings
+    cc1101_writeSingleByte(TEST1_REGADDR, 0x35);   //Various Test Settings
+    cc1101_writeSingleByte(TEST0_REGADDR, 0x09);   //Various Test Settings
+
+    setTxPower(desiredTx_dBm);
+    NRF_LOG_WARNING("CC1101 setupSensitive433 done, TX dBm %d", m_desiredTxdBm);
+}
+#endif // #if SENSITIVE_433
+
+#if FORUM_433
+static void setupPacketRadio(int8_t desiredTx_dBm)
+{
+// Rf settings for CC1101
+//    0x06,  // IOCFG0        GDO0 Output Pin Configuration
+    cc1101_writeSingleByte(IOCFG2_REGADDR, IOCFGx_GDOx_CFG(gdox_3state));
+    cc1101_writeSingleByte(IOCFG1_REGADDR, IOCFGx_GDOx_CFG(gdox_3state));
+    cc1101_writeSingleByte(IOCFG0_REGADDR, IOCFGx_GDOx_CFG(gdox_3state));
+
+//    0x47,  // FIFOTHR       RX FIFO and TX FIFO Thresholds
+    cc1101_writeSingleByte(FIFOTHR_REGADDR, 0x47);
+
+//    0x05,  // PKTCTRL0      Packet Automation Control
+
+    // normal mode in b5:4
+    //    cc1101_writeSingleByte(PKTCTRL0_REGADDR, 0x05);   //Packet Automation Control
+    uint8_t u8 = 0; // TODO | PKTCTRL0_WHITE_DATA;
+    u8 |= PKTCTRL0_CRC_EN;
+#if PKT_SIZE_FIXED
+    u8 |= PKTCTRL0_LENGTH_CFG(pktCtrl0Len_fixed);
+    cc1101_writeSingleByte(PKTCTRL0_REGADDR, u8);   //Packet Automation Control
+    cc1101_writeSingleByte(PKTLEN_REGADDR, PKT_LEN);
+#else
+#error "define"
+#endif // #if PKT_SIZE_FIXED
+
+//    0x06,        // FSCTRL1       Frequency Synthesizer Control
+    cc1101_writeSingleByte(FSCTRL1_REGADDR, 0x06);
+    /*0x22,        // FREQ2         Frequency Control Word, High Byte
+     0xB6,        // FREQ1         Frequency Control Word, Middle Byte
+     0x27,        // FREQ0         Frequency Control Word, Low Byte
+     The above is for 915MHz, we need 433
+     */
+    cc1101_writeSingleByte(FREQ2_REGADDR, 0x10);   //Frequency Control Word, High Byte
+    cc1101_writeSingleByte(FREQ1_REGADDR, 0xA7);   //Frequency Control Word, Middle Byte
+    cc1101_writeSingleByte(FREQ0_REGADDR, 0x62);   //Frequency Control Word, Low Byte
+
+//    0xCA,        // MDMCFG4       Modem Configuration
+    cc1101_writeSingleByte(MDMCFG4_REGADDR, 0xCA);
+//    0x83,        // MDMCFG3       Modem Configuration
+    cc1101_writeSingleByte(MDMCFG3_REGADDR, 0x83);
+//    0x13,        // MDMCFG2       Modem Configuration
+    cc1101_writeSingleByte(MDMCFG2_REGADDR, 0x13);
+//    0x35,        // DEVIATN       Modem Deviation Setting
+    cc1101_writeSingleByte(DEVIATN_REGADDR, 0x35);
+
+    // Added MCSM1 to go automatically from TX to RX when sending.
+    u8 = MCSM1_CCA_MODE(ccaMode_RssiBelowThresholdUnlessRx);
+    u8 |= MCSM1_RXOFF_MODE(rxOff_idle); // Go to Idle when done with RX
+    u8 |= MCSM1_TXOFF_MODE(txOff_Rx); // Go to TX when done with RX
+    cc1101_writeSingleByte(MCSM1_REGADDR, u8);
+
+//    0x18,        // MCSM0         Main Radio Control State Machine Configuration
+    cc1101_writeSingleByte(MCSM0_REGADDR, 0x18); // 0x18 is cal on idle to RX/TX, and PO timeout 64
+//    0x16,        // FOCCFG        Frequency Offset Compensation Configuration
+    cc1101_writeSingleByte(FOCCFG_REGADDR, 0x16);
+//    0x43,        // AGCCTRL2      AGC Control
+    cc1101_writeSingleByte(AGCCTRL2_REGADDR, 0x43);
+//    0xFB,        // WORCTRL       Wake On Radio Control
+    cc1101_writeSingleByte(WORCTRL_REGADDR, 0xFB);
+//    0xE9,        // FSCAL3        Frequency Synthesizer Calibration
+//    0x2A,        // FSCAL2        Frequency Synthesizer Calibration
+//    0x00,        // FSCAL1        Frequency Synthesizer Calibration
+//    0x1F,        // FSCAL0        Frequency Synthesizer Calibration
+    cc1101_writeSingleByte(FSCAL3_REGADDR, 0xE9);
+    cc1101_writeSingleByte(FSCAL2_REGADDR, 0x2A);
+    cc1101_writeSingleByte(FSCAL1_REGADDR, 0x00);
+    cc1101_writeSingleByte(FSCAL0_REGADDR, 0x1F);
+//    0x81,        // TEST2         Various Test Settings
+//    0x35,        // TEST1         Various Test Settings
+//    0x09,        // TEST0         Various Test Settings
+    cc1101_writeSingleByte(TEST2_REGADDR, 0x81);
+    cc1101_writeSingleByte(TEST1_REGADDR, 0x35);
+    cc1101_writeSingleByte(TEST0_REGADDR, 0x09);
+
+    setTxPower(desiredTx_dBm);
+    NRF_LOG_WARNING("CC1101 setupForum433 done, TX dBm %d", m_desiredTxdBm);
+
+}
+#endif // #if FORUM_433
+
+#if SENSITIVE_915
+static void setupPacketRadio(int8_t desiredTx_dBm)
+{
+    if (statusByteState_idle != CHIPSTATUSBYTE_STATE(m_lastChipStatusByte))
+    {
+        cc1101_setIdle(true); // Idle it before writing configs
+    }
+
+    /* Rf settings for CC1101, exported April 18, 2024
+     * 915.00MHz, XTAL 26MHz
+     */
+    //    cc1101_writeSingleByte(IOCFG0_REGADDR, 0x06);  //GDO0 Output Pin Configuration
+    // Set all pins to tri-state
+    cc1101_writeSingleByte(IOCFG2_REGADDR, IOCFGx_GDOx_CFG(gdox_3state));
+    cc1101_writeSingleByte(IOCFG1_REGADDR, IOCFGx_GDOx_CFG(gdox_3state));
+    cc1101_writeSingleByte(IOCFG0_REGADDR, IOCFGx_GDOx_CFG(gdox_3state));
+
+    cc1101_writeSingleByte(FIFOTHR_REGADDR, 0x47);   //RX FIFO and TX FIFO Thresholds
+    uint8_t u8 = PKTCTRL1_APPEND_STATUS;
+    u8 |= PKTCTRL1_ADDR_CHK(addrChk_none); // No addresses yet
+    cc1101_writeSingleByte(PKTCTRL1_REGADDR, u8);
+    // normal mode in b5:4
+    //    cc1101_writeSingleByte(PKTCTRL0_REGADDR, 0x05);   //Packet Automation Control
+    u8 = 0; // TODO test PKTCTRL0_WHITE_DATA;
+    u8 |= PKTCTRL0_CRC_EN;
+#if PKT_SIZE_FIXED
+    u8 |= PKTCTRL0_LENGTH_CFG(pktCtrl0Len_fixed);
+    cc1101_writeSingleByte(PKTCTRL0_REGADDR, u8);   //Packet Automation Control
+    cc1101_writeSingleByte(PKTLEN_REGADDR, PKT_LEN);
+#else
+#error "define"
+#endif // #if PKT_SIZE_FIXED
+
+    cc1101_writeSingleByte(FSCTRL1_REGADDR, 0x06);   //Frequency Synthesizer Control
+    // Want 433.0MHz, because boards are that freq
+    cc1101_writeSingleByte(FREQ2_REGADDR, 0x23);   //Frequency Control Word, High Byte
+    cc1101_writeSingleByte(FREQ1_REGADDR, 0x31);   //Frequency Control Word, Middle Byte
+    cc1101_writeSingleByte(FREQ0_REGADDR, 0x3B);   //Frequency Control Word, Low Byte
+
+    cc1101_writeSingleByte(MDMCFG4_REGADDR, 0xC7);   //Modem Configuration
+    cc1101_writeSingleByte(MDMCFG3_REGADDR, 0x83);   //Modem Configuration
+//    Set mode to GFSK
+    cc1101_writeSingleByte(MDMCFG2_REGADDR, 0x13);   //Modem Configuration
+
+    cc1101_writeSingleByte(DEVIATN_REGADDR, 0x40);   //Modem Deviation Setting
+
+    // Added MCSM1 to go automatically from TX to RX when sending.
+    u8 = MCSM1_CCA_MODE(ccaMode_RssiBelowThresholdUnlessRx);
+    u8 |= MCSM1_RXOFF_MODE(rxOff_idle); // Go to Idle when done with RX
+    u8 |= MCSM1_TXOFF_MODE(txOff_Rx); // Go to TX when done with RX
+    cc1101_writeSingleByte(MCSM1_REGADDR, u8);
+
+    // Generated had autocal when idle to RX or TX 0x10, and PO_TIMEOUT of 0b10 (0x08)
+    cc1101_writeSingleByte(MCSM0_REGADDR, 0x18);    //Main Radio Control State Machine Configuration
+
+    cc1101_writeSingleByte(FOCCFG_REGADDR, 0x16);   //Frequency Offset Compensation Configuration
+
+    cc1101_writeSingleByte(AGCCTRL2_REGADDR, 0x43);  //AGC Control
+
+    cc1101_writeSingleByte(WORCTRL_REGADDR, 0xFB);   //Wake On Radio Control
+    cc1101_writeSingleByte(FSCAL3_REGADDR, 0xE9);   //Frequency Synthesizer Calibration
+    cc1101_writeSingleByte(FSCAL2_REGADDR, 0x2A);   //Frequency Synthesizer Calibration
+    cc1101_writeSingleByte(FSCAL1_REGADDR, 0x00);   //Frequency Synthesizer Calibration
+    cc1101_writeSingleByte(FSCAL0_REGADDR, 0x1F);   //Frequency Synthesizer Calibration
+    cc1101_writeSingleByte(TEST2_REGADDR, 0x81);   //Various Test Settings
+    cc1101_writeSingleByte(TEST1_REGADDR, 0x35);   //Various Test Settings
+    cc1101_writeSingleByte(TEST0_REGADDR, 0x09);   //Various Test Settings
+
+    setTxPower(desiredTx_dBm);
+    NRF_LOG_WARNING("CC1101 setupSensitive915 done, TX dBm %d", m_desiredTxdBm);
+}
+
+#endif // #if SENSITIVE_915
+
+#if FORUM_915
+//https://e2e.ti.com/support/wireless-connectivity/sub-1-ghz-group/sub-1-ghz/f/sub-1-ghz-forum/1275571/cc1101-unable-to-recevie-packets-with-rssi-value-less-than--70-dbm-at-904mhz
+static void setupPacketRadio(int8_t desiredTx_dBm)
+{
+// Rf settings for CC1101
+//    0x06,  // IOCFG0        GDO0 Output Pin Configuration
+    cc1101_writeSingleByte(IOCFG2_REGADDR, IOCFGx_GDOx_CFG(gdox_3state));
+    cc1101_writeSingleByte(IOCFG1_REGADDR, IOCFGx_GDOx_CFG(gdox_3state));
+    cc1101_writeSingleByte(IOCFG0_REGADDR, IOCFGx_GDOx_CFG(gdox_3state));
+
+//    0x47,  // FIFOTHR       RX FIFO and TX FIFO Thresholds
+    cc1101_writeSingleByte(FIFOTHR_REGADDR, 0x47);
+
+//    0x05,  // PKTCTRL0      Packet Automation Control
+
+    // normal mode in b5:4
+    //    cc1101_writeSingleByte(PKTCTRL0_REGADDR, 0x05);   //Packet Automation Control
+    uint8_t u8 = 0; // TODO | PKTCTRL0_WHITE_DATA;
+    u8 |= PKTCTRL0_CRC_EN;
+#if PKT_SIZE_FIXED
+    u8 |= PKTCTRL0_LENGTH_CFG(pktCtrl0Len_fixed);
+    cc1101_writeSingleByte(PKTCTRL0_REGADDR, u8);   //Packet Automation Control
+    cc1101_writeSingleByte(PKTLEN_REGADDR, PKT_LEN);
+#else
+#error "define"
+#endif // #if PKT_SIZE_FIXED
+
+//    0x06,        // FSCTRL1       Frequency Synthesizer Control
+    cc1101_writeSingleByte(FSCTRL1_REGADDR, 0x06);
+    /*0x22,        // FREQ2         Frequency Control Word, High Byte
+     0xB6,        // FREQ1         Frequency Control Word, Middle Byte
+     0x27,        // FREQ0         Frequency Control Word, Low Byte
+     The above is for 915MHz
+     */
+    cc1101_writeSingleByte(FREQ2_REGADDR, 0x22);   //Frequency Control Word, High Byte
+    cc1101_writeSingleByte(FREQ1_REGADDR, 0xB6);   //Frequency Control Word, Middle Byte
+    cc1101_writeSingleByte(FREQ0_REGADDR, 0x27);   //Frequency Control Word, Low Byte
+
+//    0xCA,        // MDMCFG4       Modem Configuration
+    cc1101_writeSingleByte(MDMCFG4_REGADDR, 0xCA);
+//    0x83,        // MDMCFG3       Modem Configuration
+    cc1101_writeSingleByte(MDMCFG3_REGADDR, 0x83);
+//    0x13,        // MDMCFG2       Modem Configuration
+    cc1101_writeSingleByte(MDMCFG2_REGADDR, 0x13);
+//    0x35,        // DEVIATN       Modem Deviation Setting
+    cc1101_writeSingleByte(DEVIATN_REGADDR, 0x35);
+
+    // Added MCSM1 to go automatically from TX to RX when sending.
+    u8 = MCSM1_CCA_MODE(ccaMode_RssiBelowThresholdUnlessRx);
+    u8 |= MCSM1_RXOFF_MODE(rxOff_idle); // Go to Idle when done with RX
+    u8 |= MCSM1_TXOFF_MODE(txOff_Rx); // Go to TX when done with RX
+    cc1101_writeSingleByte(MCSM1_REGADDR, u8);
+
+//    0x18,        // MCSM0         Main Radio Control State Machine Configuration
+    cc1101_writeSingleByte(MCSM0_REGADDR, 0x18); // 0x18 is cal on idle to RX/TX, and PO timeout 64
+//    0x16,        // FOCCFG        Frequency Offset Compensation Configuration
+    cc1101_writeSingleByte(FOCCFG_REGADDR, 0x16);
+//    0x43,        // AGCCTRL2      AGC Control
+    cc1101_writeSingleByte(AGCCTRL2_REGADDR, 0x43);
+//    0xFB,        // WORCTRL       Wake On Radio Control
+    cc1101_writeSingleByte(WORCTRL_REGADDR, 0xFB);
+//    0xE9,        // FSCAL3        Frequency Synthesizer Calibration
+//    0x2A,        // FSCAL2        Frequency Synthesizer Calibration
+//    0x00,        // FSCAL1        Frequency Synthesizer Calibration
+//    0x1F,        // FSCAL0        Frequency Synthesizer Calibration
+    cc1101_writeSingleByte(FSCAL3_REGADDR, 0xE9);
+    cc1101_writeSingleByte(FSCAL2_REGADDR, 0x2A);
+    cc1101_writeSingleByte(FSCAL1_REGADDR, 0x00);
+    cc1101_writeSingleByte(FSCAL0_REGADDR, 0x1F);
+//    0x81,        // TEST2         Various Test Settings
+//    0x35,        // TEST1         Various Test Settings
+//    0x09,        // TEST0         Various Test Settings
+    cc1101_writeSingleByte(TEST2_REGADDR, 0x81);
+    cc1101_writeSingleByte(TEST1_REGADDR, 0x35);
+    cc1101_writeSingleByte(TEST0_REGADDR, 0x09);
+
+    setTxPower(desiredTx_dBm);
+    NRF_LOG_WARNING("CC1101 setupForum433 done, TX dBm %d", m_desiredTxdBm);
+
+}
+#endif // #if FORUM_915
+
+#if locustcox_433
+
+static void setupPacketRadio(int8_t desiredTx_dBm)
+{
+    char PA[] = { 0x60 };
+    const unsigned char PA_LEN = 1;
+    /* Sync word qualifier mode = 30/32 sync word bits detected */
+    /* CRC autoflush = false */
+    /* Channel spacing = 199.951172 */
+    /* Data format = Normal mode */
+    /* Data rate = 512.573 */
+    /* RX filter BW = 58.035714 */
+    /* PA ramping = false */
+    /* Preamble count = 4 */
+    /* Whitening = false */
+    /* Address config = No address check */
+    /* Carrier frequency = 433.999969 */
+    /* Device address = 0 */
+    /* TX power = 0 */
+    /* Manchester enable = true */
+    /* CRC enable = true */
+    /* Deviation = 5.157471 */
+    /* Packet length mode = Variable packet length mode. Packet length configured by the first byte after sync word */
+    /* Packet length = 255 */
+    /* Modulation format = GFSK */
+    /* Base frequency = 433.999969 */
+    /* Modulated = true */
+    /* Channel number = 0 */
+//-------------------------------------------------------
+//Register Settings for CC1101
+//-Generated by the Awesomely Awesome SmartRF(c) studio
+//-------------------------------------------------------
+    cc1101_writeSingleByte(IOCFG0_REGADDR, 0x06);
+    cc1101_writeSingleByte(FIFOTHR_REGADDR, 0x47);
+//    cc1101_writeSingleByte(PKTCTRL0_REGADDR, 0x05);
+    uint8_t u8 = 0; // TODO | PKTCTRL0_WHITE_DATA;
+    u8 |= PKTCTRL0_CRC_EN;
+#if PKT_SIZE_FIXED
+    u8 |= PKTCTRL0_LENGTH_CFG(pktCtrl0Len_fixed);
+    cc1101_writeSingleByte(PKTCTRL0_REGADDR, u8);   //Packet Automation Control
+    cc1101_writeSingleByte(PKTLEN_REGADDR, PKT_LEN);
+#else
+#error "define"
+#endif // #if PKT_SIZE_FIXED
+    cc1101_writeSingleByte(FSCTRL1_REGADDR, 0x06);
+    cc1101_writeSingleByte(FREQ2_REGADDR, 0x10);
+    cc1101_writeSingleByte(FREQ1_REGADDR, 0xB1);
+    cc1101_writeSingleByte(FREQ0_REGADDR, 0x3B);
+
+    // Added MCSM1 to go automatically from TX to RX when sending.
+    u8 = MCSM1_CCA_MODE(ccaMode_RssiBelowThresholdUnlessRx);
+    u8 |= MCSM1_RXOFF_MODE(rxOff_idle); // Go to Idle when done with RX
+    u8 |= MCSM1_TXOFF_MODE(txOff_Rx); // Go to TX when done with RX
+    cc1101_writeSingleByte(MCSM1_REGADDR, u8);
+
+    cc1101_writeSingleByte(MDMCFG4_REGADDR, 0xFE);
+    cc1101_writeSingleByte(MDMCFG3_REGADDR, 0x43);
+    cc1101_writeSingleByte(MDMCFG2_REGADDR, 0x1B);
+    cc1101_writeSingleByte(DEVIATN_REGADDR, 0x15);
+    cc1101_writeSingleByte(MCSM0_REGADDR, 0x18);
+    cc1101_writeSingleByte(FOCCFG_REGADDR, 0x16);
+    cc1101_writeSingleByte(WORCTRL_REGADDR, 0xFB);
+    cc1101_writeSingleByte(FSCAL3_REGADDR, 0xEA);
+    cc1101_writeSingleByte(FSCAL2_REGADDR, 0x2A);
+    cc1101_writeSingleByte(FSCAL1_REGADDR, 0x00);
+    cc1101_writeSingleByte(FSCAL0_REGADDR, 0x1F);
+    cc1101_writeSingleByte(TEST2_REGADDR, 0x81);
+    cc1101_writeSingleByte(TEST1_REGADDR, 0x35);
+    cc1101_writeSingleByte(TEST0_REGADDR, 0x09);
+
+    cc1101_writeBurst(PATABLE_REGADDR, PA, PA_LEN);
+}
+#endif // #if locustcox_433
 
 /* Packet sniffer settings Feb 06 2024
  # ---------------------------------------------------
@@ -1010,15 +1479,15 @@ static void setup433PacketTx(void)
  {CC1101_TEST1,       0x35},
  {CC1101_TEST0,       0x09},
 
- halRfWriteReg(FIFOTHR,0x47);//RX FIFO and TX FIFO Thresholds
- halRfWriteReg(MDMCFG2,0x30);//Modem Configuration
- halRfWriteReg(FREND0,0x11); //Front End TX Configuration
- halRfWriteReg(FSCAL3,0xEA); //Frequency Synthesizer Calibration
- halRfWriteReg(FSCAL2,0x2A); //Frequency Synthesizer Calibration
- halRfWriteReg(FSCAL1,0x00); //Frequency Synthesizer Calibration
- halRfWriteReg(FSCAL0,0x1F); //Frequency Synthesizer Calibration
- halRfWriteReg(TEST2,0x81);  //Various Test Settings
- halRfWriteReg(TEST1,0x35);  //Various Test Settings
+ cc1101_writeSingleByte(FIFOTHR,0x47);//RX FIFO and TX FIFO Thresholds
+ cc1101_writeSingleByte(MDMCFG2,0x30);//Modem Configuration
+ cc1101_writeSingleByte(FREND0,0x11); //Front End TX Configuration
+ cc1101_writeSingleByte(FSCAL3,0xEA); //Frequency Synthesizer Calibration
+ cc1101_writeSingleByte(FSCAL2,0x2A); //Frequency Synthesizer Calibration
+ cc1101_writeSingleByte(FSCAL1,0x00); //Frequency Synthesizer Calibration
+ cc1101_writeSingleByte(FSCAL0,0x1F); //Frequency Synthesizer Calibration
+ cc1101_writeSingleByte(TEST2,0x81);  //Various Test Settings
+ cc1101_writeSingleByte(TEST1,0x35);  //Various Test Settings
 
  *
  */
@@ -1191,7 +1660,7 @@ static void readVariablePacket(packetRxSettings_t* pSettings, uint8_t numFifoByt
     { // We need to read the first byte to know the length
         cc1101_readSingleByte(RXFIFO_REGADDR, &pSettings->expectedPacketLen); // First byte is length byte
         pSettings->rxState = packetRxState_awaitingPacketBytes;
-        // Now see if we have enough bytes to receive the rest
+// Now see if we have enough bytes to receive the rest
         numFifoBytes--;
         if (numFifoBytes)
         {
@@ -1394,8 +1863,24 @@ static void tryReceivePacket(packetRxSettings_t* pSettings)
     }
 }
 
-static void asyncTxPoll(chipStatusByteState_t currentState)
+static void asyncTxPoll(void)
 {
+    if (uptimeCounter_elapsedSince(m_lastPoll_ms) < 100)
+    { // Don't spam SPI bus, rate-limit checks
+        return;
+    }
+    // If here, we have expired the timer and can ask it what's up.
+    cc1101_strobe(STROBE_NOP); // Strobe NOP to get status
+    // See if state has changed
+    chipStatusByteState_t currentState = CHIPSTATUSBYTE_STATE(m_lastChipStatusByte);
+    if (currentState != m_lastReadStatusByteState)
+    {
+        m_inState_ms = 0;
+    }
+    else
+    { // If in state, increment timer
+        m_inState_ms += uptimeCounter_elapsedSince(m_lastPoll_ms);
+    }
     switch (currentState)
     {
         case statusByteState_tx:
@@ -1430,27 +1915,63 @@ static void asyncTxPoll(chipStatusByteState_t currentState)
             //ignore for now
         break;
     }
+    m_lastReadStatusByteState = currentState;
 }
 
-static void packetRxPoll(chipStatusByteState_t currentState)
+#if GDO2_STATUS
+static chipStatusByteState_t checkOrPoll(void)
 {
+    bool shouldPoll = false;
+    // Read GDO2 pin latch to see if it went high, current state to see if it went low
+    bool gdo2WasHigh = nrf_gpio_pin_latch_get(CC1101_GDO2_PIN);
+    nrf_gpio_pin_latch_clear(CC1101_GDO2_PIN); // Clear right at read, so it can set again if it goes high
+    if (gdo2WasHigh)
+    { // Asserts at start of TX or TX, then de-asserts when done sending/receiving packet.
+        NRF_LOG_INFO("Detected high latch:");
+        bool isHigh = nrf_gpio_pin_read(CC1101_GDO2_PIN);
+        if (!isHigh)
+        { // Once done with packet, we can poll status if we like.
+            shouldPoll = true;
+            NRF_LOG_INFO("Not high any more, done with RX or TX");
+        }
+    }
+    if (shouldPoll)
+    { // See if state has changed
+        cc1101_strobe(STROBE_NOP); // Strobe NOP to get status
+    }
+    return CHIPSTATUSBYTE_STATE(m_lastChipStatusByte);
+}
+#else
+static chipStatusByteState_t checkOrPoll(void)
+{
+    if (uptimeCounter_elapsedSince(m_lastPoll_ms) < STATUS_POLL_ITVL_MS)
+    { // Don't spam SPI bus, especially when RXing
+        return CHIPSTATUSBYTE_STATE(m_lastChipStatusByte);
+    }
+    // If here, we have expired the timer and can ask it what's up.
+    cc1101_strobe(STROBE_NOP); // Strobe NOP to get status
+    return CHIPSTATUSBYTE_STATE(m_lastChipStatusByte);
+}
+#endif // #if GDO2_STATUS
+
+static void packetRxPoll(void)
+{
+    chipStatusByteState_t currentState = checkOrPoll(); // checkOrPoll will update state and return that
+    if (currentState != m_lastReadStatusByteState)
+    {
+        m_inState_ms = 0;
+    }
+    else
+    { // If in state, increment timer
+        m_inState_ms += uptimeCounter_elapsedSince(m_lastPoll_ms);
+    }
     switch (currentState)
     {
         case statusByteState_tx:
-            if (1 == m_sendState)
-            {
-                // Gets into this state from someone telling it to send a packet.
-                if (m_inState_ms >= TX_TIMEOUT_MS)
-                { // Shouldn't take a long time to send
-                    m_sendState = 0;
-                    NRF_LOG_ERROR("Timed out in TX state, idling")
-                    ;
-                    cc1101_setIdle(true);
-                }
-            }
-            else
-            {
-                NRF_LOG_ERROR("In TX state, should NOT be here, idling.")
+            if (TX_TIMEOUT_MS < m_inState_ms)
+            { // Shouldn't take a long time to send
+
+                NRF_LOG_ERROR("Timed out in TX state, idling")
                 ;
                 cc1101_setIdle(true);
             }
@@ -1475,8 +1996,8 @@ static void packetRxPoll(chipStatusByteState_t currentState)
         break;
         case statusByteState_idle:
             // Usually here because we received a packet, or because we errored and came here
-            //            NRF_LOG_DEBUG("Idle Check for Received")
-            //            ;
+//            NRF_LOG_DEBUG("Idle, last state %s", m_statuses[m_lastReadStatusByteState])
+//            ;
             // In RX mode, switch to RX state ASAP
             if (m_newTxPower)
             {
@@ -1488,25 +2009,28 @@ static void packetRxPoll(chipStatusByteState_t currentState)
                 m_rxSettings.rxState = packetRxState_awaitingPacketStart;
                 m_rxSettings.packetBufIndex = 0;
             }
-            m_sendState = 0;
             // Check if we have received a packet
             tryReceivePacket(&m_rxSettings);
-
-            if (1 == m_sendState)
+            // tryReceivePacket may parse a packet that says we should go into TX state.
+            if (statusByteState_tx == CHIPSTATUSBYTE_STATE(m_lastChipStatusByte))
             {
-//                NRF_LOG_INFO("sendState 1, it should go to TX");
-                cc1101_strobe(STROBE_NOP);
-                NRF_LOG_INFO("is it in TX?");
+
             }
             else
             {
                 NRF_LOG_DEBUG("poller start RX:")
                 ;
-                cc1101_strobe(STROBE_FLUSHRXFIFO); // Can flush in idle
-                cc1101_strobe(STROBE_FLUSHTXFIFO); // Can flush in idle
+//                cc1101_strobe(STROBE_FLUSHRXFIFO); // Can flush in idle
+//                cc1101_strobe(STROBE_FLUSHTXFIFO); // Can flush in idle
                 cc1101_strobe(STROBE_SRX);
+                // Now assume it went to RX state. Don't ask it, in case it is in RX
+                NRF_LOG_WARNING("Manual update");
+                updateStatus(statusByteState_rx << 4); // Have to fake the whole byte
+                m_inState_ms = 0;
             }
         break;
+        case statusByteState_cal:
+            break;
         case statusByteState_rxOverflow:
             NRF_LOG_ERROR("Detected RX overflow,idling")
             ;
@@ -1526,10 +2050,20 @@ static void packetRxPoll(chipStatusByteState_t currentState)
             }
         break;
     }
+    m_lastReadStatusByteState = currentState;
 }
 
-static void packetTxPoll(chipStatusByteState_t currentState)
+static void packetTxPoll(void)
 {
+    chipStatusByteState_t currentState = checkOrPoll(); // checkOrPoll will update state and return that
+    if (currentState != m_lastReadStatusByteState)
+    {
+        m_inState_ms = 0;
+    }
+    else
+    { // If in state, increment timer
+        m_inState_ms += uptimeCounter_elapsedSince(m_lastPoll_ms);
+    }
     switch (currentState)
     {
         case statusByteState_tx:
@@ -1542,29 +2076,43 @@ static void packetTxPoll(chipStatusByteState_t currentState)
             }
         break;
         case statusByteState_rx:
-            if ((m_sendState && (RX_AFTER_TX_TIMEOUT_MS < m_inState_ms))
-                    || (0 == m_sendState))
+            if (RX_AFTER_TX_TIMEOUT_MS < m_inState_ms)
             {
-                NRF_LOG_WARNING("packetTx timeout in RX state after %d ms, sendState %d, idling", m_inState_ms,
-                                m_sendState)
+                NRF_LOG_WARNING("Timed out in RX after %d ms, idling", m_inState_ms)
                 ;
-                m_sendState = 0;
+#ifdef UART_TX_PIN
+                uartTerminal_enqueueToUSB((uint8_t*)"Timed out in RX, idling\n",
+                                          strlen("Timed out in RX, idling\n"));
+#endif // #ifdef UART_TX_PIN
                 cc1101_setIdle(true);
             }
         break;
         case statusByteState_idle:
             // Idle until someone calls sendPacket
+//            NRF_LOG_DEBUG("Idle, last state was %s", m_statuses[m_lastReadStatusByteState])
+//            ;
             if (m_newTxPower)
             {
                 setTxPower(m_desiredTxdBm);
                 m_newTxPower = false;
             }
             if (0 == m_inState_ms)
-            { // Reset RX parser on entry, then try and receive packet
-                m_rxSettings.rxState = packetRxState_awaitingPacketStart;
-                m_rxSettings.packetBufIndex = 0;
-                // Usually here because we received a packet
-                tryReceivePacket(&m_rxSettings);
+            { // If we just changed state
+                if (statusByteState_rx == m_lastReadStatusByteState)
+                { // Coming from RX state, reset RX parser, try and parse a packet.
+                    m_rxSettings.rxState = packetRxState_awaitingPacketStart;
+                    m_rxSettings.packetBufIndex = 0;
+                    // Usually here because we received a packet
+                    tryReceivePacket(&m_rxSettings);
+                }
+                else if (statusByteState_tx == m_lastReadStatusByteState)
+                { // Coming from TX, we should go to RX to receive an ACK
+                    NRF_LOG_INFO("Go to RX after TX is done");
+                    cc1101_strobe(STROBE_SRX);
+                    // Now assume it went to RX state. Don't ask it, in case it is in RX
+                    NRF_LOG_WARNING("Manual update");
+                    updateStatus(statusByteState_rx << 4); // Have to fake the whole byte
+                }
             }
             // Stay in idle until next TX command triggers TX, then TX to RX, then idle again.
         break;
@@ -1587,36 +2135,21 @@ static void packetTxPoll(chipStatusByteState_t currentState)
             }
         break;
     }
+    m_lastReadStatusByteState = currentState;
 }
 
 static void cc1101Poll(void)
 {
-    if (uptimeCounter_elapsedSince(m_lastPoll_ms) < STATUS_POLL_ITVL_MS)
-    { // Don't spam SPI bus, especially when RXing
-        return;
-    }
-// If here, we have expired the timer and can ask it what's up.
-    cc1101_strobe(STROBE_NOP); // Strobe NOP to get status
-// See if state has changed
-    chipStatusByteState_t currentState = CHIPSTATUSBYTE_STATE(m_lastChipStatusByte);
-    if (currentState != m_lastReadStatusByteState)
-    {
-        m_inState_ms = 0;
-    }
-    else
-    { // If in state, increment timer
-        m_inState_ms += uptimeCounter_elapsedSince(m_lastPoll_ms);
-    }
     switch (m_opMode)
     {
         case cc1101_asyncTX:
-            asyncTxPoll(currentState);
+            asyncTxPoll();
         break;
         case cc1101_packetRX:
-            packetRxPoll(currentState);
+            packetRxPoll();
         break;
         case cc1101_packetTX:
-            packetTxPoll(currentState);
+            packetTxPoll();
         break;
         default:
             break;
@@ -1636,39 +2169,9 @@ if (uptimeCounter_elapsedSince(m_lastTx_ms) >= TX_TEST_ITVL_MS)
 }
 #endif // #if TX_TEST_ITVL_MS
 
-    m_lastReadStatusByteState = currentState;
     m_lastPoll_ms = uptimeCounter_getUptimeMs();
 
 }
-
-//bool cc1101_sendPacket(uint8_t* pBytes, uint8_t len)
-//{
-//    if (len > PKT_LEN)
-//    {
-//        NRF_LOG_ERROR("Can only send %d bytes per packet, not %d, ignoring", PKT_LEN, len);
-//        return false;
-//    }
-//    uint8_t pktBuf[PKT_LEN];
-//    for (uint8_t i = 0; i < PKT_LEN; i++)
-//    {
-//        if (i < len)
-//        {
-//            pktBuf[i] = pBytes[i];
-//        }
-//        else
-//        {
-//            pktBuf[i] = 0xFF;
-//        }
-//    }
-//    bool ret = true;
-//    ret &= cc1101_writeBurst(TXFIFO_REGADDR, pktBuf, PKT_LEN);
-//    uint8_t regData;
-//    ret &= cc1101_readSingleByte(TXBYTES_REGADDR, &regData);
-//    NRF_LOG_DEBUG("Wanted to send %d bytes, sent packet of %d bytes to txfifo, TXYBTES says %d", len, PKT_LEN,
-//                  regData);
-//    ret &= cc1101_strobe(STROBE_STX);
-//    return ret;
-//}
 
 bool cc1101_sendPacket(uint8_t byte)
 {
@@ -1680,6 +2183,7 @@ bool cc1101_sendPacket(uint8_t byte)
     ret &= cc1101_readSingleByte(TXBYTES_REGADDR, pktBuf);
     if (PKT_LEN == pktBuf[0])
     {
+//        NRF_LOG_DEBUG("Sending packet of %d bytes at %d dBm.", PKT_LEN, m_desiredTxdBm);
 #if verbose_tx
         NRF_LOG_DEBUG("Sending packet of %d bytes at %d dBm.", PKT_LEN, m_desiredTxdBm);
 #ifdef UART_TX_PIN
@@ -1700,7 +2204,8 @@ bool cc1101_sendPacket(uint8_t byte)
                         pktBuf[0]);
     }
     ret &= cc1101_strobe(STROBE_STX);
-    m_sendState++;
+    NRF_LOG_WARNING("Manual update to TX");
+    updateStatus(statusByteState_tx << 4); // Have to fake the whole byte
     return ret;
 
 }
@@ -1710,16 +2215,38 @@ cc1101Mode_t cc1101_readMode(void)
     return m_opMode;
 }
 
-void cc1101_setOutputPower(int8_t power_dBm)
+void cc1101_setOutputPower(int8_t tx_dBm)
 {
-    m_desiredTxdBm = power_dBm;
-    m_newTxPower = true;
+    if (m_desiredTxdBm != tx_dBm)
+    {
+        NRF_LOG_INFO("Desire change of power to %d dBm", tx_dBm);
+#ifdef UART_TX_PIN
+        char strBuf[96];
+        int strLen = snprintf(strBuf, sizeof(strBuf), "Desire TX %d dBm\n", tx_dBm);
+        if (0 < strLen)
+        {
+            uartTerminal_enqueueToUSB((const uint8_t*)strBuf, (uint32_t)strLen);
+        }
+#endif // #ifdef UART_TX_PIN
+        m_desiredTxdBm = tx_dBm;
+        m_newTxPower = true;
+    }
+}
+
+static void setupGDO2Input(uint8_t pin)
+{ // GDO2 will go high at beginning of packet RX, then low when done receiving. Sense the first high-going edge.
+    nrf_gpio_cfg(pin,
+                 NRF_GPIO_PIN_DIR_INPUT,
+                 NRF_GPIO_PIN_INPUT_CONNECT,
+                 GPIO_PIN_CNF_PULL_Pulldown,
+                 NRF_GPIO_PIN_S0S1,
+                 NRF_GPIO_PIN_SENSE_HIGH);
 }
 
 void cc1101_init(cc1101Mode_t desired)
 {
     spi0_init(); // Make sure pins are muxed and working
-    m_lastChipStatusByte = 0xFF;
+    m_lastChipStatusByte = 0x8F;
     bool testPass = cc1101_reboot();
     if (!testPass)
     {
@@ -1741,15 +2268,16 @@ void cc1101_init(cc1101Mode_t desired)
     switch (desired)
     {
         case cc1101_packetRX:
+            setupGDO2Input(CC1101_GDO2_PIN);
             initPacketReceiver();
-            setup433PacketTx(); // Same settings for Rx side
+            setupPacketRadio(-30); // Same settings for Rx side
             m_opMode = cc1101_packetRX;
         break;
         case cc1101_packetTX:
+            setupGDO2Input(CC1101_GDO2_PIN);
             initPacketReceiver();
-            setup433PacketTx();
+            setupPacketRadio(-30); // Same settings for Rx side
             m_opMode = cc1101_packetTX;
-            m_sendState = 0;
         break;
         case cc1101_asyncTX:
             // do NOT set up the MOSI pin to drive yet, until we de-init the default CC1101 drive as output.

@@ -189,13 +189,6 @@ static void parsePowerdigit(uint8_t byte)
         {
             m_accumulator = -1 * m_accumulator;
         }
-        NRF_LOG_INFO("Setting power to %d dBm", m_accumulator);
-        char strBuf[96];
-        int strLen = snprintf(strBuf, sizeof(strBuf), "Setting power to %d dBm\n", m_accumulator);
-        if (0 < strLen)
-        {
-            uartTerminal_enqueueToUSB((const uint8_t*)strBuf, (uint32_t)strLen);
-        }
         cc1101_setOutputPower((int8_t)m_accumulator);
         m_parserState = parserState_default;
     }

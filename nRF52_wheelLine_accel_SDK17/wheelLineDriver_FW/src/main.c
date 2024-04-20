@@ -79,11 +79,12 @@ static void log_init(void)
 
 int main(void)
 {
+
     uptimeCounter_zero();
     // Get logging up
     log_init();
 #if COMPILE_FOR_PCA10040
-    NRF_LOG_DEBUG("%s start, compiled for PCA10040",DEVICE_NAME);
+    NRF_LOG_DEBUG("%s start, compiled for PCA10040", DEVICE_NAME);
 #elif COMPILE_FOR_FEATHER
     NRF_LOG_DEBUG("%s start, compiled for FEATHER", DEVICE_NAME);
 #endif //
@@ -98,7 +99,10 @@ int main(void)
     // Put version into a string on the screen
     char strBuf[8]; // Could have dots
     int strLen = snprintf(strBuf, sizeof(strBuf), "v%d.%d.%d", VERSION_MAJOR, VERSION_MINOR, VERSION_SUBMINOR);
-    _4digit7seg_writeStr(strBuf);
+    if (0 < strLen)
+    {
+        _4digit7seg_writeStr(strBuf);
+    }
     // TODO start BLE for dropping to DFU, softDevice calls
 #if NRF_SDH_ENABLED && RUN_BLE
     bleStuff_init();
