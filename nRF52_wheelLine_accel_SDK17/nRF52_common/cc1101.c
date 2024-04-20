@@ -1545,9 +1545,10 @@ static void packetTxPoll(chipStatusByteState_t currentState)
             if ((m_sendState && (RX_AFTER_TX_TIMEOUT_MS < m_inState_ms))
                     || (0 == m_sendState))
             {
-                NRF_LOG_ERROR("packetTx should not be in RX state, sendState %d, in for %d ms, idling", m_sendState,
-                              m_inState_ms)
+                NRF_LOG_WARNING("packetTx timeout in RX state after %d ms, sendState %d, idling", m_inState_ms,
+                                m_sendState)
                 ;
+                m_sendState = 0;
                 cc1101_setIdle(true);
             }
         break;
