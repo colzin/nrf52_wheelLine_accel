@@ -833,12 +833,12 @@ static void setTxPower(int8_t tx_dBm)
         m_desiredTxdBm = -62;
         desiredPaVal = 0x00;
     }
-    if (tx_dBm <= -38)
+    else if (tx_dBm <= -38)
     {
         m_desiredTxdBm = -38;
         desiredPaVal = 0x30;
     }
-    if (tx_dBm <= -30)
+    else if (tx_dBm <= -30)
     {
         m_desiredTxdBm = -30;
         desiredPaVal = 0x12;
