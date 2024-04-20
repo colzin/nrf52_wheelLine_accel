@@ -2270,13 +2270,13 @@ void cc1101_init(cc1101Mode_t desired)
         case cc1101_packetRX:
             setupGDO2Input(CC1101_GDO2_PIN);
             initPacketReceiver();
-            setupPacketRadio(-30); // Same settings for Rx side
+            setupPacketRadio(-20); // Same settings for Rx side
             m_opMode = cc1101_packetRX;
         break;
         case cc1101_packetTX:
             setupGDO2Input(CC1101_GDO2_PIN);
             initPacketReceiver();
-            setupPacketRadio(-30); // Same settings for Rx side
+            setupPacketRadio(-20); // Same settings for Rx side
             m_opMode = cc1101_packetTX;
         break;
         case cc1101_asyncTX:

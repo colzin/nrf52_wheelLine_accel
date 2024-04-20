@@ -39,7 +39,7 @@ typedef enum
     cc1101_packetRX,
 } cc1101Mode_t;
 
-#define ASK_433 0
+#define ASK_433 1
 #if !ASK_433
 #define SENSITIVE_433 1
 #if !SENSITIVE_433
