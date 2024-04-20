@@ -542,6 +542,8 @@ static packetRxSettings_t m_rxSettings;
 
 static cc1101Mode_t m_opMode;
 
+static uint8_t m_sendState;
+
 static bool m_newTxPower;
 static int8_t m_desiredTxdBm;
 
@@ -612,7 +614,7 @@ static bool cc1101_strobe(uint8_t address)
     ret_code_t ret = spi0_xfer(spi0_cc1101, &xfer, false);
     if (NRF_SUCCESS == ret)
     {
-        NRF_LOG_INFO("Strobed 0x%x, read Status 0x%x", address, sres);
+//        NRF_LOG_INFO("Strobed 0x%x, read Status 0x%x", address, sres);
         updateStatus(sres);
         return true;
     }
@@ -648,7 +650,6 @@ static bool cc1101_writeSingleByte(uint8_t address, uint8_t data)
     }
 }
 
-#if 1
 static bool cc1101_writeBurst(uint8_t startAddress, uint8_t* data, uint32_t len)
 {
     startAddress |= CC1101_WRITE_BURST;
@@ -680,17 +681,7 @@ static bool cc1101_writeBurst(uint8_t startAddress, uint8_t* data, uint32_t len)
         return false;
     }
 }
-#else
-static bool cc1101_writeBurst(uint8_t startAddress, uint8_t* data, uint32_t len)
-{
-    startAddress |= CC1101_WRITE_BURST;
-    ret_code_t ret = spi0_write(spi0_cc1101, &startAddress, 1, true);
-    ret |= spi0_write(spi0_cc1101, data, len, false);
-    return ret == NRF_SUCCESS ? true : false;
-}
-#endif //1
 
-#if 1
 static bool cc1101_readBurst(uint8_t startAddress, uint8_t* buffer, uint32_t len)
 {
     startAddress |= CC1101_READ_BURST;
@@ -705,17 +696,6 @@ static bool cc1101_readBurst(uint8_t startAddress, uint8_t* buffer, uint32_t len
     ret |= spi0_read(spi0_cc1101, buffer, len, false);
     return ret == NRF_SUCCESS ? true : false;
 }
-#else //
-
-static bool cc1101_readBurst(uint8_t startAddress, uint8_t* buffer, uint32_t len)
-{
-    startAddress |= CC1101_READ_BURST;
-    ret_code_t ret = spi0_write(spi0_cc1101, &startAddress, 1, true);
-    ret |= spi0_read(spi0_cc1101, buffer, len, false);
-    return ret == NRF_SUCCESS ? true : false;
-}
-
-#endif // 1
 
 static bool cc1101_reboot(void)
 {
@@ -1863,24 +1843,8 @@ static void tryReceivePacket(packetRxSettings_t* pSettings)
     }
 }
 
-static void asyncTxPoll(void)
+static void asyncTxPoll(chipStatusByteState_t currentState)
 {
-    if (uptimeCounter_elapsedSince(m_lastPoll_ms) < 100)
-    { // Don't spam SPI bus, rate-limit checks
-        return;
-    }
-    // If here, we have expired the timer and can ask it what's up.
-    cc1101_strobe(STROBE_NOP); // Strobe NOP to get status
-    // See if state has changed
-    chipStatusByteState_t currentState = CHIPSTATUSBYTE_STATE(m_lastChipStatusByte);
-    if (currentState != m_lastReadStatusByteState)
-    {
-        m_inState_ms = 0;
-    }
-    else
-    { // If in state, increment timer
-        m_inState_ms += uptimeCounter_elapsedSince(m_lastPoll_ms);
-    }
     switch (currentState)
     {
         case statusByteState_tx:
@@ -1915,63 +1879,27 @@ static void asyncTxPoll(void)
             //ignore for now
         break;
     }
-    m_lastReadStatusByteState = currentState;
 }
 
-#if GDO2_STATUS
-static chipStatusByteState_t checkOrPoll(void)
+static void packetRxPoll(chipStatusByteState_t currentState)
 {
-    bool shouldPoll = false;
-    // Read GDO2 pin latch to see if it went high, current state to see if it went low
-    bool gdo2WasHigh = nrf_gpio_pin_latch_get(CC1101_GDO2_PIN);
-    nrf_gpio_pin_latch_clear(CC1101_GDO2_PIN); // Clear right at read, so it can set again if it goes high
-    if (gdo2WasHigh)
-    { // Asserts at start of TX or TX, then de-asserts when done sending/receiving packet.
-        NRF_LOG_INFO("Detected high latch:");
-        bool isHigh = nrf_gpio_pin_read(CC1101_GDO2_PIN);
-        if (!isHigh)
-        { // Once done with packet, we can poll status if we like.
-            shouldPoll = true;
-            NRF_LOG_INFO("Not high any more, done with RX or TX");
-        }
-    }
-    if (shouldPoll)
-    { // See if state has changed
-        cc1101_strobe(STROBE_NOP); // Strobe NOP to get status
-    }
-    return CHIPSTATUSBYTE_STATE(m_lastChipStatusByte);
-}
-#else
-static chipStatusByteState_t checkOrPoll(void)
-{
-    if (uptimeCounter_elapsedSince(m_lastPoll_ms) < STATUS_POLL_ITVL_MS)
-    { // Don't spam SPI bus, especially when RXing
-        return CHIPSTATUSBYTE_STATE(m_lastChipStatusByte);
-    }
-    // If here, we have expired the timer and can ask it what's up.
-    cc1101_strobe(STROBE_NOP); // Strobe NOP to get status
-    return CHIPSTATUSBYTE_STATE(m_lastChipStatusByte);
-}
-#endif // #if GDO2_STATUS
-
-static void packetRxPoll(void)
-{
-    chipStatusByteState_t currentState = checkOrPoll(); // checkOrPoll will update state and return that
-    if (currentState != m_lastReadStatusByteState)
-    {
-        m_inState_ms = 0;
-    }
-    else
-    { // If in state, increment timer
-        m_inState_ms += uptimeCounter_elapsedSince(m_lastPoll_ms);
-    }
     switch (currentState)
     {
         case statusByteState_tx:
-            if (TX_TIMEOUT_MS < m_inState_ms)
-            { // Shouldn't take a long time to send
-
-                NRF_LOG_ERROR("Timed out in TX state, idling")
+            if (1 == m_sendState)
+            {
+                // Gets into this state from someone telling it to send a packet.
+                if (m_inState_ms >= TX_TIMEOUT_MS)
+                { // Shouldn't take a long time to send
+                    m_sendState = 0;
+                    NRF_LOG_ERROR("Timed out in TX state, idling")
+                    ;
+                    cc1101_setIdle(true);
+                }
+            }
+            else
+            {
+                NRF_LOG_ERROR("In TX state, should NOT be here, idling.")
                 ;
                 cc1101_setIdle(true);
             }
@@ -1996,8 +1924,8 @@ static void packetRxPoll(void)
         break;
         case statusByteState_idle:
             // Usually here because we received a packet, or because we errored and came here
-//            NRF_LOG_DEBUG("Idle, last state %s", m_statuses[m_lastReadStatusByteState])
-//            ;
+            //            NRF_LOG_DEBUG("Idle Check for Received")
+            //            ;
             // In RX mode, switch to RX state ASAP
             if (m_newTxPower)
             {
@@ -2009,28 +1937,25 @@ static void packetRxPoll(void)
                 m_rxSettings.rxState = packetRxState_awaitingPacketStart;
                 m_rxSettings.packetBufIndex = 0;
             }
+            m_sendState = 0;
             // Check if we have received a packet
             tryReceivePacket(&m_rxSettings);
-            // tryReceivePacket may parse a packet that says we should go into TX state.
-            if (statusByteState_tx == CHIPSTATUSBYTE_STATE(m_lastChipStatusByte))
-            {
 
+            if (1 == m_sendState)
+            {
+//                NRF_LOG_INFO("sendState 1, it should go to TX");
+                cc1101_strobe(STROBE_NOP);
+                NRF_LOG_INFO("is it in TX?");
             }
             else
             {
                 NRF_LOG_DEBUG("poller start RX:")
                 ;
-//                cc1101_strobe(STROBE_FLUSHRXFIFO); // Can flush in idle
-//                cc1101_strobe(STROBE_FLUSHTXFIFO); // Can flush in idle
+                cc1101_strobe(STROBE_FLUSHRXFIFO); // Can flush in idle
+                cc1101_strobe(STROBE_FLUSHTXFIFO); // Can flush in idle
                 cc1101_strobe(STROBE_SRX);
-                // Now assume it went to RX state. Don't ask it, in case it is in RX
-                NRF_LOG_WARNING("Manual update");
-                updateStatus(statusByteState_rx << 4); // Have to fake the whole byte
-                m_inState_ms = 0;
             }
         break;
-        case statusByteState_cal:
-            break;
         case statusByteState_rxOverflow:
             NRF_LOG_ERROR("Detected RX overflow,idling")
             ;
@@ -2050,20 +1975,10 @@ static void packetRxPoll(void)
             }
         break;
     }
-    m_lastReadStatusByteState = currentState;
 }
 
-static void packetTxPoll(void)
+static void packetTxPoll(chipStatusByteState_t currentState)
 {
-    chipStatusByteState_t currentState = checkOrPoll(); // checkOrPoll will update state and return that
-    if (currentState != m_lastReadStatusByteState)
-    {
-        m_inState_ms = 0;
-    }
-    else
-    { // If in state, increment timer
-        m_inState_ms += uptimeCounter_elapsedSince(m_lastPoll_ms);
-    }
     switch (currentState)
     {
         case statusByteState_tx:
@@ -2076,43 +1991,28 @@ static void packetTxPoll(void)
             }
         break;
         case statusByteState_rx:
-            if (RX_AFTER_TX_TIMEOUT_MS < m_inState_ms)
+            if ((m_sendState && (RX_AFTER_TX_TIMEOUT_MS < m_inState_ms))
+                    || (0 == m_sendState))
             {
-                NRF_LOG_WARNING("Timed out in RX after %d ms, idling", m_inState_ms)
+                NRF_LOG_ERROR("packetTx should not be in RX state, sendState %d, in for %d ms, idling", m_sendState,
+                              m_inState_ms)
                 ;
-#ifdef UART_TX_PIN
-                uartTerminal_enqueueToUSB((uint8_t*)"Timed out in RX, idling\n",
-                                          strlen("Timed out in RX, idling\n"));
-#endif // #ifdef UART_TX_PIN
                 cc1101_setIdle(true);
             }
         break;
         case statusByteState_idle:
             // Idle until someone calls sendPacket
-//            NRF_LOG_DEBUG("Idle, last state was %s", m_statuses[m_lastReadStatusByteState])
-//            ;
             if (m_newTxPower)
             {
                 setTxPower(m_desiredTxdBm);
                 m_newTxPower = false;
             }
             if (0 == m_inState_ms)
-            { // If we just changed state
-                if (statusByteState_rx == m_lastReadStatusByteState)
-                { // Coming from RX state, reset RX parser, try and parse a packet.
-                    m_rxSettings.rxState = packetRxState_awaitingPacketStart;
-                    m_rxSettings.packetBufIndex = 0;
-                    // Usually here because we received a packet
-                    tryReceivePacket(&m_rxSettings);
-                }
-                else if (statusByteState_tx == m_lastReadStatusByteState)
-                { // Coming from TX, we should go to RX to receive an ACK
-                    NRF_LOG_INFO("Go to RX after TX is done");
-                    cc1101_strobe(STROBE_SRX);
-                    // Now assume it went to RX state. Don't ask it, in case it is in RX
-                    NRF_LOG_WARNING("Manual update");
-                    updateStatus(statusByteState_rx << 4); // Have to fake the whole byte
-                }
+            { // Reset RX parser on entry, then try and receive packet
+                m_rxSettings.rxState = packetRxState_awaitingPacketStart;
+                m_rxSettings.packetBufIndex = 0;
+                // Usually here because we received a packet
+                tryReceivePacket(&m_rxSettings);
             }
             // Stay in idle until next TX command triggers TX, then TX to RX, then idle again.
         break;
@@ -2135,21 +2035,36 @@ static void packetTxPoll(void)
             }
         break;
     }
-    m_lastReadStatusByteState = currentState;
 }
 
 static void cc1101Poll(void)
 {
+    if (uptimeCounter_elapsedSince(m_lastPoll_ms) < STATUS_POLL_ITVL_MS)
+    { // Don't spam SPI bus, especially when RXing
+        return;
+    }
+// If here, we have expired the timer and can ask it what's up.
+    cc1101_strobe(STROBE_NOP); // Strobe NOP to get status
+// See if state has changed
+    chipStatusByteState_t currentState = CHIPSTATUSBYTE_STATE(m_lastChipStatusByte);
+    if (currentState != m_lastReadStatusByteState)
+    {
+        m_inState_ms = 0;
+    }
+    else
+    { // If in state, increment timer
+        m_inState_ms += uptimeCounter_elapsedSince(m_lastPoll_ms);
+    }
     switch (m_opMode)
     {
         case cc1101_asyncTX:
-            asyncTxPoll();
+            asyncTxPoll(currentState);
         break;
         case cc1101_packetRX:
-            packetRxPoll();
+            packetRxPoll(currentState);
         break;
         case cc1101_packetTX:
-            packetTxPoll();
+            packetTxPoll(currentState);
         break;
         default:
             break;
@@ -2169,6 +2084,7 @@ if (uptimeCounter_elapsedSince(m_lastTx_ms) >= TX_TEST_ITVL_MS)
 }
 #endif // #if TX_TEST_ITVL_MS
 
+    m_lastReadStatusByteState = currentState;
     m_lastPoll_ms = uptimeCounter_getUptimeMs();
 
 }
@@ -2204,8 +2120,7 @@ bool cc1101_sendPacket(uint8_t byte)
                         pktBuf[0]);
     }
     ret &= cc1101_strobe(STROBE_STX);
-    NRF_LOG_WARNING("Manual update to TX");
-    updateStatus(statusByteState_tx << 4); // Have to fake the whole byte
+    m_sendState++;
     return ret;
 
 }
@@ -2246,7 +2161,7 @@ static void setupGDO2Input(uint8_t pin)
 void cc1101_init(cc1101Mode_t desired)
 {
     spi0_init(); // Make sure pins are muxed and working
-    m_lastChipStatusByte = 0x8F;
+    m_lastChipStatusByte = 0xFF;
     bool testPass = cc1101_reboot();
     if (!testPass)
     {
@@ -2278,6 +2193,7 @@ void cc1101_init(cc1101Mode_t desired)
             initPacketReceiver();
             setupPacketRadio(-20); // Same settings for Rx side
             m_opMode = cc1101_packetTX;
+            m_sendState = 0;
         break;
         case cc1101_asyncTX:
             // do NOT set up the MOSI pin to drive yet, until we de-init the default CC1101 drive as output.

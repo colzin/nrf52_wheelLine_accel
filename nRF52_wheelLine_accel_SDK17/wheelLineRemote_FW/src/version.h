@@ -69,8 +69,6 @@ extern "C" {
 #warning "Compiling for nRF52 Bluefruit Feather"
 #define HEARTBEAT_LED_GPIO_NUM FEATHER_ONBOARD_GPIO17_LED1
 
-// For EV1527Timer
-#define RADIO_TX_GPIO   FEATHER_GPIO20_DFU
 // For EV1527SPI
 #define SPI2_SCK_PIN    FEATHER_GPIO16_16
 #define SPI2_MOSI_PIN   FEATHER_GPIO15_15
