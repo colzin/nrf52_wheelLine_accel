@@ -38,6 +38,8 @@ NRF_LOG_MODULE_REGISTER();
 #define RUN_BLE 1
 #endif // #if NRF_SDH_BLE_ENABLED
 
+#define READ_RESETREAS 0
+
 /*************************************************************************************
  *  Variables
  ************************************************************************************/
@@ -93,6 +95,10 @@ int main(void)
     uptimeCounter_init();
     // Zero the pollers, so future calls can init
     pollers_init();
+
+#if READ_RESETREAS
+    NRF_LOG_INFO("Reset reason 0x%x", NRF_POWER->RESETREAS);
+#endif // #if READ_RESETREAS
     // Run initialization functions as needed, they may register pollers now
     initializeInputs();
     initializeOutputs();
