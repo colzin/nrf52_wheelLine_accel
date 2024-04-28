@@ -30,6 +30,7 @@ typedef enum
 {
     parserState_default,
     parserState_receivingPower,
+    parserState_receivingCloseIn,
 } parserState_t;
 
 #define MAX_UART_DATA_LEN 128
@@ -199,36 +200,48 @@ static void parsePowerdigit(uint8_t byte)
     }
 }
 
+static void parseCloseIn(uint8_t byte)
+{
+    if ('0' <= byte && '3' >= byte)
+    {
+        cc1101_setCloseInRx(byte - '0');
+    }
+    else
+    {
+        NRF_LOG_WARNING("Error, moving to default");
+        uartTerminal_enqueueToUSB((const uint8_t*)"Error, moving to default\n",
+                                  strlen("Error, moving to default\n"));
+    }
+    m_parserState = parserState_default;
+}
+
 static void defaultParser(uint8_t byte)
 {
     switch (byte)
     {
         break;
+        case 'c':
+            uartTerminal_enqueueToUSB((const uint8_t*)"Enter 0-3 for close-in atten:\n",
+                                      strlen("Enter 0-3 for close-in atten:\n"));
+            m_parserState = parserState_receivingCloseIn;
+        break;
         case 'i':
-            NRF_LOG_WARNING("Setting CC1101 to IDLE state")
-            ;
             uartTerminal_enqueueToUSB((const uint8_t*)"Setting CC1101 to IDLE state\n",
                                       strlen("Setting CC1101 to IDLE state\n"));
             cc1101_setIdle(true);
         break;
         case 'o':
-            NRF_LOG_WARNING("Setting engine ON idle mode")
-            ;
             uartTerminal_enqueueToUSB((const uint8_t*)"Setting engine ON idle mode\n",
                                       strlen("Setting engine ON idle mode\n"));
             globalInts_setMachineState(machState_runEngineHydIdle);
         break;
         case 'r':
-            NRF_LOG_WARNING("Rebooting")
-            ;
+            uartTerminal_enqueueToUSB((const uint8_t*)"Rebooting\n", strlen("Rebooting\n"));
             // Delay for prints to finish
-            nrf_delay_ms(2);
+            nrf_delay_ms(5);
             NVIC_SystemReset();
         break;
         case 't':
-            case 'T':
-            NRF_LOG_WARNING("Enter TX power")
-            ;
             uartTerminal_enqueueToUSB((const uint8_t*)"Enter TX power:\n", strlen("Enter TX power:\n"));
             m_accumulator = 0;
             m_negative = false;
@@ -239,9 +252,7 @@ static void defaultParser(uint8_t byte)
         case CR_CHAR:
             break;
         default:
-            NRF_LOG_INFO("Enter i, o, p, r, t")
-            ;
-            uartTerminal_enqueueToUSB((const uint8_t*)"Enter i, o, r, t\n", strlen("Enter i, o, r, t\n"));
+            uartTerminal_enqueueToUSB((const uint8_t*)"Enter c, i, o, r, t\n", strlen("Enter i, o, r, t\n"));
         break;
     }
 }
@@ -324,6 +335,9 @@ static void uartPoll(void)
             break;
             case parserState_receivingPower:
                 parsePowerdigit(m_rxData[m_rxDataReadIndex]);
+            break;
+            case parserState_receivingCloseIn:
+                parseCloseIn(m_rxData[m_rxDataReadIndex]);
             break;
         }
         m_rxDataReadIndex++;

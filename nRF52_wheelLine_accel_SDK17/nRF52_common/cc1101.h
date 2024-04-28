@@ -88,6 +88,14 @@ typedef enum
 #define STATUS_POLL_ITVL_MS (100) // Try not to poll while RXing or TXing a packet
 #endif // #if GDO2_STATUS
 
+typedef enum
+{
+    closeInRx_0dB = 0,
+    closeInRx_6dB,
+    closeInRx_12dB,
+    closeInRx_18dB
+} fifothr_closeInRx_t;
+
 /*************************************************************************************
  * Functions
  ************************************************************************************/
@@ -100,6 +108,8 @@ bool cc1101_sendPacket(uint8_t byte);
 
 cc1101Mode_t cc1101_readMode(void);
 void cc1101_setOutputPower(int8_t power_dBm);
+
+bool cc1101_setCloseInRx(fifothr_closeInRx_t atten);
 
 void cc1101_init(cc1101Mode_t desired);
 

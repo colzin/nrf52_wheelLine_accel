@@ -137,13 +137,8 @@ typedef enum
 // b7 unused, reads 0
 #define FIFOTHR_ADC_RETENTION   0x40 // b6 ADC retention, see datasheet
 #define FIFOTHR_CLOSE_IN_RX(x)  ((x<<4)&0x30)// b5:4 See DesignNote DN010, attenuation values
-typedef enum
-{
-    closeInRx_0dB = 0,
-    closeInRx_6dB,
-    closeInRx_12dB,
-    closeInRx_18dB
-} fifothr_closeInRx_t;
+// See .h for def
+
 #define FIFOTHR_FIFO_THR(x)     (x&0x07) // b3:0 are the threshold for RX and TX FIFO, exceeded when num bytes => threshold
 
 #define SYNC1_REGADDR           0x04            // Sync word, high byte
@@ -839,15 +834,40 @@ static void setTxPower(int8_t tx_dBm)
         m_desiredTxdBm = -38;
         desiredPaVal = 0x30;
     }
+    else if (tx_dBm <= -36)
+    {
+        m_desiredTxdBm = -36;
+        desiredPaVal = 0x01;
+    }
+    else if (tx_dBm <= -34)
+    {
+        m_desiredTxdBm = -34;
+        desiredPaVal = 0x02;
+    }
+    else if (tx_dBm <= -31)
+    {
+        m_desiredTxdBm = -31;
+        desiredPaVal = 0x03;
+    }
     else if (tx_dBm <= -30)
     {
         m_desiredTxdBm = -30;
         desiredPaVal = 0x12;
     }
+    else if (tx_dBm <= -28)
+    {
+        m_desiredTxdBm = -28;
+        desiredPaVal = 0x05;
+    }
     else if (tx_dBm <= -25)
     {
         m_desiredTxdBm = -25;
         desiredPaVal = 0x07;
+    }
+    else if (tx_dBm <= -23)
+    {
+        m_desiredTxdBm = -23;
+        desiredPaVal = 0x09;
     }
     else if (tx_dBm <= -20)
     {
@@ -1412,8 +1432,8 @@ static void setupPacketRadio(int8_t desiredTx_dBm)
 #if SENSITIVE_ASK433
 static void setupPacketRadio(int8_t desiredTx_dBm)
 {
-
     cc1101_writeSingleByte(IOCFG0_REGADDR, 0x06);  //GDO0 Output Pin Configuration
+    // RX filter BW = 58kHz, <=325kHz so set FIFOTHR 0 0x47
     cc1101_writeSingleByte(FIFOTHR_REGADDR, 0x47); //RX FIFO and TX FIFO Thresholds
     cc1101_writeSingleByte(PKTLEN_REGADDR, PKT_LEN);  //Packet Length
     cc1101_writeSingleByte(PKTCTRL0_REGADDR, 0x04);  //Packet Automation Control
@@ -1421,7 +1441,7 @@ static void setupPacketRadio(int8_t desiredTx_dBm)
     cc1101_writeSingleByte(FREQ2_REGADDR, 0x10);   //Frequency Control Word, High Byte
     cc1101_writeSingleByte(FREQ1_REGADDR, 0xA7);   //Frequency Control Word, Middle Byte
     cc1101_writeSingleByte(FREQ0_REGADDR, 0x62);   //Frequency Control Word, Low Byte
-    cc1101_writeSingleByte(MDMCFG4_REGADDR, 0xF5); //Modem Configuration
+    cc1101_writeSingleByte(MDMCFG4_REGADDR, 0xF7); //Modem Configuration
     cc1101_writeSingleByte(MDMCFG3_REGADDR, 0x83); //Modem Configuration
     cc1101_writeSingleByte(MDMCFG2_REGADDR, 0x33); //Modem Configuration
     cc1101_writeSingleByte(DEVIATN_REGADDR, 0x15); //Modem Deviation Setting
@@ -1433,15 +1453,32 @@ static void setupPacketRadio(int8_t desiredTx_dBm)
     cc1101_writeSingleByte(MCSM1_REGADDR, u8);
 
     cc1101_writeSingleByte(MCSM0_REGADDR, 0x18);   //Main Radio Control State Machine Configuration
-    cc1101_writeSingleByte(FOCCFG_REGADDR, 0x14);  //Frequency Offset Compensation Configuration
-    cc1101_writeSingleByte(AGCCTRL0_REGADDR, 0x92);  //AGC Control
+    cc1101_writeSingleByte(FOCCFG_REGADDR, 0x16);  //Frequency Offset Compensation Configuration
+    /* From DN022, OOK sensitivity document:
+     * The optimum AGC settings change with RX filter bandwidth and data rate, but for OOK/ASK
+     * the following has been found to give good results:
+     *  AGCCTRL2 = 0x03 to 0x07 (default 0x03)
+     *  AGCCTRL1 = 0x00         (default 0x40)
+     *  AGCCTRL0 = 0x91 or 0x92 (default 0x91)
+     */
+    // Default from smartRF was only to set AGCCTRL0: cc1101_writeSingleByte(AGCCTRL0_REGADDR, 0x92);
+    // Try the following:
+    cc1101_writeSingleByte(AGCCTRL2_REGADDR, 0x02);
+    cc1101_writeSingleByte(AGCCTRL1_REGADDR, 0x00);
+    cc1101_writeSingleByte(AGCCTRL0_REGADDR, 0x92);
+
     cc1101_writeSingleByte(WORCTRL_REGADDR, 0xFB); //Wake On Radio Control
+    // RX filter BW = 203kHz, >101kHz so set FREND1 = 0xB6
+    // RX filter BW = 58kHz, <=101kHz so set FREND1 = 0x56 (default 0x56)
+    cc1101_writeSingleByte(FREND1_REGADDR, 0x56);
     cc1101_writeSingleByte(FREND0_REGADDR, 0x11);  //Front End TX Configuration
     cc1101_writeSingleByte(FSCAL3_REGADDR, 0xE9);  //Frequency Synthesizer Calibration
     cc1101_writeSingleByte(FSCAL2_REGADDR, 0x2A);  //Frequency Synthesizer Calibration
     cc1101_writeSingleByte(FSCAL1_REGADDR, 0x00);  //Frequency Synthesizer Calibration
     cc1101_writeSingleByte(FSCAL0_REGADDR, 0x1F);  //Frequency Synthesizer Calibration
+    // RX filter BW = 203kHz, <=325kHz so set TEST2 = 0x81
     cc1101_writeSingleByte(TEST2_REGADDR, 0x81);   //Various Test Settings
+    // RX filter BW = 203kHz, <=325kHz so set TEST1 = 0x35
     cc1101_writeSingleByte(TEST1_REGADDR, 0x35);   //Various Test Settings
     cc1101_writeSingleByte(TEST0_REGADDR, 0x09);   //Various Test Settings
 
@@ -2218,6 +2255,26 @@ void cc1101_setOutputPower(int8_t tx_dBm)
         m_desiredTxdBm = tx_dBm;
         m_newTxPower = true;
     }
+}
+
+bool cc1101_setCloseInRx(fifothr_closeInRx_t atten)
+{
+    uint8_t oldRegVal;
+    if (!cc1101_readSingleByte(FIFOTHR_REGADDR, &oldRegVal))
+    {
+        return false;
+    }
+    // Now mask the bits to zero, then OR in the bits we want set
+    uint8_t newVal = (uint8_t)((oldRegVal & (~FIFOTHR_CLOSE_IN_RX(0b11))) | FIFOTHR_CLOSE_IN_RX(atten));
+    if (newVal == oldRegVal)
+    { // Don't need to write
+        return true;
+    }
+    else if (!cc1101_writeSingleByte(FIFOTHR_REGADDR, newVal))
+    {
+        return false;
+    }
+    return true;
 }
 
 static void setupGDO2Input(uint8_t pin)
