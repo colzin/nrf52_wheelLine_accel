@@ -6,8 +6,10 @@
  */
 
 #include "sdk_config.h"
+
 #include "spi0.h"
 
+#if COMPILE_RADIO_CC1101
 #if NRFX_SPI_ENABLED
 
 #include "nrf_delay.h"
@@ -109,6 +111,7 @@ static void setupCSOutputs(void)
 
 #endif // #if COMPILE_FOR_FEATHER
 
+#if COMPILE_RADIO_CC1101
     NRF_P0->OUTSET = (1UL << SPI0_CC1101_CS_GPIO);
 #if HIGH_DRIVE_PINS
     nrf_gpio_cfg(SPI0_CC1101_CS_GPIO,
@@ -120,6 +123,7 @@ static void setupCSOutputs(void)
 #else
     nrf_gpio_cfg_output(SPI0_CC1101_CS_GPIO);
 #endif // #if HIGH_DRIVE_PINS
+#endif // #if COMPILE_RADIO_CC1101
 }
 
 static void assertCS(spi0Slave_t slave)
@@ -127,7 +131,9 @@ static void assertCS(spi0Slave_t slave)
     switch (slave)
     {
         case spi0_cc1101:
+            #if COMPILE_RADIO_CC1101
             NRF_P0->OUTCLR = (1UL << SPI0_CC1101_CS_GPIO);
+#endif // #if COMPILE_RADIO_CC1101
         break;
 #if COMPILE_FOR_FEATHER
         case spi0_einkScreen:
@@ -150,12 +156,20 @@ static void assertCS(spi0Slave_t slave)
 static void deassertCS(void)
 {    // TODO add any other slave CS lines
 #if COMPILE_FOR_FEATHER
+#if COMPILE_RADIO_CC1101
     NRF_P0->OUTSET = (1UL << SPI0_CC1101_CS_GPIO)
             | (1UL << SPI0_EINK_CS_GPIO)
             | (1UL << SPI0_EINK_SRAM_CS_GPIO)
             | (1UL << SPI0_SDCARD_CS_GPIO);
+#else
+    NRF_P0->OUTSET = (1UL << SPI0_EINK_CS_GPIO)
+                | (1UL << SPI0_EINK_SRAM_CS_GPIO)
+                | (1UL << SPI0_SDCARD_CS_GPIO);
+#endif // #if COMPILE_RADIO_CC1101
 #elif COMPILE_FOR_PCA10040
+#if COMPILE_RADIO_CC1101
     NRF_P0->OUTSET = (1UL << SPI0_CC1101_CS_GPIO);
+#endif // #if COMPILE_RADIO_CC1101
 #endif // #if COMPILE_FOR_FEATHER
 //    NRF_LOG_DEBUG("Deasserted");
 }
@@ -441,3 +455,5 @@ void spi0_init(void)
     }
 }
 #endif // #if NRFX_SPI_ENABLED
+
+#endif // #if COMPILE_RADIO_CC1101

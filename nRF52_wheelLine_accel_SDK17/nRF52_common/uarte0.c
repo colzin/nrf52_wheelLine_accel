@@ -1,19 +1,23 @@
 /*
- * uartTerminal.c
+ * uarte0.c
  *
  *  Created on: Feb 6, 2024
  *      Author: Collin Moore
  */
 
-#include "uartTerminal.h"
+#include "uarte0.h"
 
+#if COMPILE_RADIO_CC1101
+#include "cc1101.h"
+#endif // #if COMPILE_RADIO_CC1101
 #if COMPILE_RADIO_900T20D
-#warning "can't use terminal with 900T20D"
-#else
+#include "_900t20d.h"
+#endif // #if COMPILE_RADIO_900T20D
 
 #include "globalInts.h"
 
 #include "nrf_delay.h" // For reboot print
+#include "nrf_drv_uart.h"
 #include "pollers.h"
 #include "version.h"// for pindefs
 
@@ -25,24 +29,27 @@ NRF_LOG_MODULE_REGISTER();
  *  Definitions
  ************************************************************************************/
 
-#define LF_CHAR 0xA
-#define CR_CHAR 0xD
-
-typedef enum
-{
-    parserState_default,
-    parserState_receivingPower,
-    parserState_receivingCloseIn,
-} parserState_t;
+#define VERBOSE_ISR 1 // 0 for faster ISR
 
 /*************************************************************************************
  *  Variables
  ************************************************************************************/
+// Driver
+static nrf_drv_uart_t m_uartInst = NRF_DRV_UART_INSTANCE(0);
 
-// Parser
-static parserState_t m_parserState;
-static int32_t m_accumulator;
-static bool m_negative;
+// Ring buffer
+
+        static volatile uint8_t m_rxData[UARTE0_MAX_UART_DATA_LEN * 2 + 1];
+        static volatile int32_t m_rxDataWriteIndex;
+        static int32_t m_rxDataReadIndex;
+        static volatile nrf_drv_uart_event_t m_uartEvent;
+        static volatile bool m_dataDiffered,
+m_txInProgress, m_uartRxError;
+
+static uint8_t m_txData[UARTE0_MAX_UART_DATA_LEN * 2 + 1];
+static int32_t m_txDataWriteIndex,
+        m_txDataReadIndex;
+
 /*************************************************************************************
  *  Prototypes
  ************************************************************************************/
@@ -79,6 +86,12 @@ static void uartEventHandler(nrf_drv_uart_event_t* p_event, void* p_context)
                 NRF_LOG_ERROR("UART RX evt, error starting next RX");
 #endif // #if VERBOSE_ISR
             }
+            else
+            {
+#if VERBOSE_ISR
+                NRF_LOG_ERROR("RX");
+#endif // #if VERBOSE_ISR
+            }
         }
         break;
 
@@ -108,16 +121,17 @@ static void trySend(void)
             {
                 numToSend = 255; // passed as uint8 to driver
             }
+            m_txInProgress = true; // Set before start, before ISR clears
             ret_code_t ret = nrf_drv_uart_tx(&m_uartInst, &m_txData[m_txDataReadIndex], (uint8_t)numToSend);
             if (NRF_SUCCESS == ret)
             {
-                m_txInProgress = true; // Set quickly, before ISR clears
                 m_txDataReadIndex += numToSend;
                 m_txDataReadIndex %= (int32_t)sizeof(m_txData);
 //                NRF_LOG_DEBUG("Started send of %d bytes", numToSend);
             }
             else
             {
+                m_txInProgress = false;
                 NRF_LOG_ERROR("nrf_drv_uart_tx error 0x%x", ret);
                 return;
             }
@@ -126,9 +140,9 @@ static void trySend(void)
     }
 }
 
-ret_code_t uartTerminal_enqueueToUSB(const uint8_t* pBytes, uint32_t numBytes)
+ret_code_t uarte0_enqueue(const uint8_t* pBytes, uint32_t numBytes)
 {
-#if (UART_RX_PIN && UART_TX_PIN)
+#if (UART_RX_PIN && UART_TX_PIN) || (_900T20D_UART_FROM_MODULE && _900T20D_UART_TO_MODULE)
     for (uint32_t i = 0; i < numBytes; i++)
     {
         if (((m_txDataWriteIndex + 1) % (int32_t)sizeof(m_txData)) == m_txDataReadIndex)
@@ -148,103 +162,11 @@ ret_code_t uartTerminal_enqueueToUSB(const uint8_t* pBytes, uint32_t numBytes)
     {
         trySend();
     }
-
     return NRF_SUCCESS;
 #else // If no UART pins, ignore data
     // return ok, ignore
     return NRF_SUCCESS;
 #endif // #if (UART_RX_PIN && UART_TX_PIN)
-}
-
-static void parsePowerdigit(uint8_t byte)
-{
-    if ('-' == byte)
-    {
-        m_negative = true;
-    }
-    else if ('0' <= byte && '9' >= byte)
-    {
-        m_accumulator *= 10;
-        m_accumulator += (byte - '0');
-    }
-    else if (LF_CHAR == byte || CR_CHAR == byte)
-    {
-        if (m_negative)
-        {
-            m_accumulator = -1 * m_accumulator;
-        }
-#if COMPILE_RADIO_CC1101
-        cc1101_setOutputPower((int8_t)m_accumulator);
-#endif // #if COMPILE_RADIO_CC1101
-#if COMPILE_RADIO_900T20D
-        _900t20d_setOutputPower((int8_t)m_accumulator);
-#endif // #if COMPILE_RADIO_900T20D
-        m_parserState = parserState_default;
-    }
-    else
-    {
-        NRF_LOG_WARNING("Error, moving to default");
-        m_parserState = parserState_default;
-    }
-}
-
-static void parseCloseIn(uint8_t byte)
-{
-    if ('0' <= byte && '3' >= byte)
-    {
-        cc1101_setCloseInRx(byte - '0');
-    }
-    else
-    {
-        NRF_LOG_WARNING("Error, moving to default");
-        uartTerminal_enqueueToUSB((const uint8_t*)"Error, moving to default\n",
-                                  strlen("Error, moving to default\n"));
-    }
-    m_parserState = parserState_default;
-}
-
-static void defaultParser(uint8_t byte)
-{
-    switch (byte)
-    {
-        break;
-        case 'c':
-            uartTerminal_enqueueToUSB((const uint8_t*)"Enter 0-3 for close-in atten:\n",
-                                      strlen("Enter 0-3 for close-in atten:\n"));
-            m_parserState = parserState_receivingCloseIn;
-        break;
-        case 'i':
-            uartTerminal_enqueueToUSB((const uint8_t*)"Setting CC1101 to IDLE state\n",
-                                      strlen("Setting CC1101 to IDLE state\n"));
-#if COMPILE_RADIO_CC1101
-            cc1101_setIdle(true);
-#endif // #if COMPILE_RADIO_CC1101
-        break;
-        case 'o':
-            uartTerminal_enqueueToUSB((const uint8_t*)"Setting engine ON idle mode\n",
-                                      strlen("Setting engine ON idle mode\n"));
-            globalInts_setMachineState(machState_runEngineHydIdle);
-        break;
-        case 'r':
-            uartTerminal_enqueueToUSB((const uint8_t*)"Rebooting\n", strlen("Rebooting\n"));
-            // Delay for prints to finish
-            nrf_delay_ms(5);
-            NVIC_SystemReset();
-        break;
-        case 't':
-            uartTerminal_enqueueToUSB((const uint8_t*)"Enter TX power:\n", strlen("Enter TX power:\n"));
-            m_accumulator = 0;
-            m_negative = false;
-            m_parserState = parserState_receivingPower;
-        break;
-        case LF_CHAR:
-            break;
-        case CR_CHAR:
-            break;
-        default:
-            uartTerminal_enqueueToUSB((const uint8_t*)"Enter c, i, o, r, t\n", strlen("Enter i, o, r, t\n"));
-        break;
-    }
 }
 
 static bool componentInit(void)
@@ -270,7 +192,20 @@ static bool componentInit(void)
     uartCfg.pselrts = NRF_UARTE_PSEL_DISCONNECTED;
     uartCfg.pselrxd = UART_RX_PIN;
     uartCfg.pseltxd = UART_TX_PIN;
+#elif (_900T20D_UART_FROM_MODULE && _900T20D_UART_TO_MODULE)
+    nrf_drv_uart_config_t uartCfg;
+    uartCfg.baudrate = NRF_UARTE_BAUDRATE_9600; // TODO baud rate
+    uartCfg.hwfc = NRF_UARTE_HWFC_DISABLED;
+    uartCfg.interrupt_priority = APP_IRQ_PRIORITY_LOW_MID;
+    uartCfg.p_context = NULL;
+    uartCfg.parity = NRF_UARTE_PARITY_EXCLUDED;
+    uartCfg.pselcts = NRF_UARTE_PSEL_DISCONNECTED;
+    uartCfg.pselrts = NRF_UARTE_PSEL_DISCONNECTED;
+    uartCfg.pselrxd = _900T20D_UART_FROM_MODULE;
+    uartCfg.pseltxd = _900T20D_UART_TO_MODULE;
+#endif // #if usb or 900T20D
 
+#if (UART_RX_PIN && UART_TX_PIN) || (_900T20D_UART_FROM_MODULE && _900T20D_UART_TO_MODULE)
     ret_code_t ret = nrf_drv_uart_init(&m_uartInst, &uartCfg, uartEventHandler);
     if (NRF_SUCCESS != ret)
     {
@@ -283,12 +218,11 @@ static bool componentInit(void)
         NRF_LOG_ERROR("nrf_drv_uart_rx error 0x%x\n", ret);
         return false;
     }
-
     return true;
 #else
 #warning "UART terminal not present"
     return true;
-#endif // #if (UART_RX_PIN && UART_TX_PIN)
+#endif // #if (UART_RX_PIN && UART_TX_PIN) || (_900T20D_UART_FROM_MODULE && _900T20D_UART_TO_MODULE)
 }
 
 static void uartPoll(void)
@@ -313,41 +247,39 @@ static void uartPoll(void)
         nrf_drv_uart_uninit(&m_uartInst);
         componentInit(); // Re-init it
     }
-    trySend(); // Send any left over from last poll
-    uint32_t numRxBytes = 0;
-    while (m_rxDataReadIndex != m_rxDataWriteIndex)
-    {
-        NRF_LOG_INFO("Received 0x%x", m_rxData[m_rxDataReadIndex]);
-        switch (m_parserState)
-        {
-            case parserState_default:
-                defaultParser(m_rxData[m_rxDataReadIndex]);
-            break;
-            case parserState_receivingPower:
-                parsePowerdigit(m_rxData[m_rxDataReadIndex]);
-            break;
-            case parserState_receivingCloseIn:
-                parseCloseIn(m_rxData[m_rxDataReadIndex]);
-            break;
-        }
-        m_rxDataReadIndex++;
-        numRxBytes++;
-    }
-    if (numRxBytes)
-    {
-        NRF_LOG_DEBUG("Received %d rx bytes", numRxBytes);
-    }
-    trySend(); // Send any enqued this time
+//    if (m_rxDataReadIndex != m_rxDataWriteIndex)
+//    {
+//        NRF_LOG_DEBUG("uartPoll new data");
+//    }
+    trySend(); // Send any bytes waiting to be sent
 }
 
-void uartTerminal_init(void)
+bool uarte0_isTxDone(void)
+{
+    uartPoll();
+    return !m_txInProgress;
+}
+
+bool uarte0_tryReadByte(uint8_t* pByte)
+{
+    uartPoll();
+    if (m_rxDataReadIndex != m_rxDataWriteIndex)
+    {
+//        NRF_LOG_INFO("RX byte 0x%x", m_rxData[m_rxDataReadIndex]);
+        *pByte = m_rxData[m_rxDataReadIndex];
+        m_rxDataReadIndex++;
+        m_rxDataReadIndex %= (int32_t)sizeof(m_rxData);
+        return true;
+    }
+    return false;
+}
+
+bool uarte0_init(void)
 {
     if (componentInit())
     {
-        m_parserState = parserState_default;
         pollers_registerPoller(uartPoll);
+        return true;
     }
+    return false;
 }
-
-#endif // #if COMPILE_RADIO_900T20D
-

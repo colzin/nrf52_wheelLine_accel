@@ -27,6 +27,18 @@ extern "C" {
 #error "Define one board to run on"
 #endif // #if (COMPILE_FOR_FEATHER&& COMPILE_FOR_PCA10040)
 
+#define COMPILE_RADIO_CC1101 0
+#if COMPILE_RADIO_CC1101
+#warning "Compiling for CC1101 radio"
+#else
+#define COMPILE_RADIO_900T20D 1
+#if COMPILE_RADIO_900T20D
+#warning "Compiling for 900T20D radio"
+#else
+#error "define radio"
+#endif // #if COMPILE_RADIO_900T20D
+#endif // #if COMPILE_RADIO_CC1101
+
 #include "pindefs.h"
 ////////////////////////// pins NAMES THAT WE USE, mapping to each MCU in pindefs.h:
 

@@ -7,6 +7,7 @@
 
 #include "cc1101.h"
 
+#if COMPILE_RADIO_CC1101
 #include "_4digit7seg.h"
 
 #include "ev1527SPI.h" // For Async TX
@@ -2352,3 +2353,4 @@ void cc1101_init(cc1101Mode_t desired)
     pollers_registerPoller(cc1101Poll);
 }
 
+#endif // #if COMPILE_RADIO_CC1101

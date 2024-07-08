@@ -7,13 +7,20 @@
 
 #include "sdk_config.h"
 
+#include "version.h" // #defines for other #includes
 #include "_4digit7seg.h"
 
 #if NRF_SDH_ENABLED
 #include "bleStuff.h"
 #endif // #if NRF_SDH_ENABLED
 
+#if COMPILE_RADIO_CC1101
 #include "cc1101.h"
+#endif // #if COMPILE_RADIO_CC1101
+
+#if COMPILE_RADIO_900T20D
+#include "_900t20d.h"
+#endif // #if COMPILE_RADIO_900T20D
 
 #include "globalInts.h"
 #include "gpioDriver.h"
@@ -24,7 +31,11 @@
 #include "rttTerminal.h"
 #include "sh1107I2C.h"
 #include <stdint.h>
+
+#ifdef UART_TX_PIN
 #include "uartTerminal.h"
+#endif // #ifdef UART_TX_PIN
+
 #include "uptimeCounter.h"
 #include "version.h"
 
@@ -38,7 +49,7 @@ NRF_LOG_MODULE_REGISTER();
  *  Definitions
  ************************************************************************************/
 #if NRF_SDH_BLE_ENABLED
-#define RUN_BLE 1
+#define RUN_BLE 0
 #endif // #if NRF_SDH_BLE_ENABLED
 
 /*************************************************************************************
@@ -73,7 +84,12 @@ static void initializeOutputs(void)
     remoteControlManager_init();
     heartblink_init();
     _4digit7seg_init();
+#if COMPILE_RADIO_CC1101
     cc1101_init(cc1101_packetTX); // TX on Remote, Rx on driver
+#endif // #if COMPILE_RADIO_CC1101
+#if COMPILE_RADIO_900T20D
+    _900t20d_init();
+#endif // #if COMPILE_RADIO_900T20D
     sh1107I2C_init();
 
 }

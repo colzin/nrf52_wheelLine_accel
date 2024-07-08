@@ -7,7 +7,14 @@
 
 #include "rttTerminal.h"
 
-#include "cc1101.h" // TO set output power
+#include "version.h"
+#if COMPILE_RADIO_CC1101
+#include "cc1101.h"
+#endif // #if COMPILE_RADIO_CC1101
+#if COMPILE_RADIO_900T20D
+#include "_900t20d.h"
+#endif // #if COMPILE_RADIO_900T20D
+
 #include "globalInts.h"
 #include "nrf_delay.h"
 #include "pollers.h"
@@ -60,7 +67,12 @@ static void parsePowerdigit(uint8_t byte)
         {
             m_accumulator = -1 * m_accumulator;
         }
+#if COMPILE_RADIO_CC1101
         cc1101_setOutputPower((int8_t)m_accumulator);
+#endif // #if COMPILE_RADIO_CC1101
+#if COMPILE_RADIO_900T20D
+        _900t20d_setOutputPower((int8_t)m_accumulator);
+#endif // #if COMPILE_RADIO_900T20D
         m_parserState = parserState_default;
     }
     else
@@ -68,6 +80,23 @@ static void parsePowerdigit(uint8_t byte)
         NRF_LOG_WARNING("Error, moving to default");
         m_parserState = parserState_default;
     }
+}
+
+static void parseCloseIn(uint8_t byte)
+{
+    if ('0' <= byte && '3' >= byte)
+    {
+#if COMPILE_RADIO_CC1101
+        cc1101_setCloseInRx(byte - '0');
+#endif // #if COMPILE_RADIO_CC1101
+    }
+    else
+    {
+        NRF_LOG_WARNING("Error, moving to default");
+        uartTerminal_enqueueToUSB((const uint8_t*)"Error, moving to default\n",
+                                  strlen("Error, moving to default\n"));
+    }
+    m_parserState = parserState_default;
 }
 
 static void defaultParser(uint8_t byte)
@@ -78,7 +107,9 @@ static void defaultParser(uint8_t byte)
         case 'i':
             NRF_LOG_WARNING("Setting CC1101 to IDLE state")
             ;
+#if COMPILE_RADIO_CC1101
             cc1101_setIdle(true);
+#endif // #if COMPILE_RADIO_CC1101
         break;
         case 'o':
             NRF_LOG_WARNING("Setting engine ON idle mode")
@@ -94,7 +125,7 @@ static void defaultParser(uint8_t byte)
         break;
         case 't':
             case 'T':
-            NRF_LOG_WARNING("Enter CC1101 TX power")
+            NRF_LOG_WARNING("Enter Radio TX power (dBm)")
             ;
             m_accumulator = 0;
             m_negative = false;

@@ -17,7 +17,7 @@ extern "C" {
 #define VERSION_MAJOR    0 // 1 byte
 #define VERSION_MINOR    0 // 1 byte
 #define VERSION_SUBMINOR 1 // 1 byte
-#define COMPILE_FOR_PCA10040 0
+#define COMPILE_FOR_PCA10040 1
 #if (!COMPILE_FOR_PCA10040)
 #define COMPILE_FOR_FEATHER 1
 #endif // #if (!COMPILE_FOR_PCA10040)
@@ -25,6 +25,18 @@ extern "C" {
 #if (COMPILE_FOR_FEATHER&& COMPILE_FOR_PCA10040)
 #error "Define one board to run on"
 #endif // #if (COMPILE_FOR_FEATHER&& COMPILE_FOR_PCA10040)
+
+#define COMPILE_RADIO_CC1101 0
+#if COMPILE_RADIO_CC1101
+#warning "Compiling for CC1101 radio"
+#else
+#define COMPILE_RADIO_900T20D 1
+#if COMPILE_RADIO_900T20D
+#warning "Compiling for 900T20D radio"
+#else
+#error "define radio"
+#endif // #if COMPILE_RADIO_900T20D
+#endif // #if COMPILE_RADIO_CC1101
 
 #include "pindefs.h"
 ////////////////////////// pins NAMES THAT WE USE, mapping to each MCU in pindefs.h:
@@ -36,8 +48,9 @@ extern "C" {
 
 // Use the pins for either EV1527 format
 #define SPI2_SCK_PIN    PCA10040_GPIO7_UART_CTS // Use an un-useable pin, we don't care about this signal.
-#define SPI2_MOSI_PIN   PCA10040_GPIO4
+//#define SPI2_MOSI_PIN   PCA10040_GPIO4
 
+#if COMPILE_RADIO_CC1101
 #define CC1101_GDO2_PIN   PCA10040_GPIO5_UART_RTS
 
 // SPI0 for e-ink, CC1101, etc...
@@ -53,6 +66,17 @@ extern "C" {
  * MOSI, MISO, SCK pins. So use on "SPI0"
  */
 #define SPI0_CC1101_CS_GPIO PCA10040_GPIO3
+#endif // #if COMPILE_RADIO_CC1101
+
+#if COMPILE_RADIO_900T20D
+#define _900T20D_AUX_PIN  PCA10040_GPIO7_UART_CTS
+
+#define _900T20D_M0_PIN   PCA10040_GPIO5_UART_RTS
+#define _900T20D_M1_PIN   PCA10040_GPIO6_UART_TXD
+#define _900T20D_VCC_CTRL_PIN PCA10040_GPIO3
+#define _900T20D_UART_TO_MODULE    PCA10040_GPIO11
+#define _900T20D_UART_FROM_MODULE   PCA10040_GPIO12
+#endif // #if COMPILE_RADIO_CC1101
 
 /* I2C1:
  * Has LIS2DH12 on it, LED screen 7-segment
@@ -99,7 +123,11 @@ extern "C" {
  * CS goes to ?
  * MOSI, MISO, SCK pins. So use on "SPI0"
  */
+#if COMPILE_RADIO_CC1101
 #define SPI0_CC1101_CS_GPIO FEATHER_GPIO29_A5
+#elif COMPILE_RADIO_900T20D
+#define _900T20D_AUX_PIN FEATHER_GPIO29_A5
+#endif // #if COMPILE_RADIO_CC1101
 
 /* I2C1:
  * Has LIS2DH12 on it, LED screen 7-segment

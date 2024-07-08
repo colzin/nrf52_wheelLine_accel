@@ -13,6 +13,8 @@ extern "C"
 {
 #endif
 
+#include "version.h"
+#if COMPILE_RADIO_CC1101
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -112,6 +114,8 @@ void cc1101_setOutputPower(int8_t power_dBm);
 bool cc1101_setCloseInRx(fifothr_closeInRx_t atten);
 
 void cc1101_init(cc1101Mode_t desired);
+
+#endif // #if COMPILE_RADIO_CC1101
 
 #ifdef __cplusplus
 }

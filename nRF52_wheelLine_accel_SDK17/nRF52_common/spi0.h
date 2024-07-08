@@ -12,6 +12,8 @@
 extern "C" {
 #endif
 
+#include "version.h"
+#if COMPILE_RADIO_CC1101
 #include "nrfx_spi.h" // Use base SPI, not fancy eDMA SPIM
 #include "sdk_errors.h"
 
@@ -41,6 +43,9 @@ ret_code_t spi0_xfer(spi0Slave_t slave, nrfx_spi_xfer_desc_t* pXfer, bool keepCS
 bool spi0_isInitted(void);
 
 void spi0_init(void);
+
+
+#endif // #if COMPILE_RADIO_CC1101
 
 #ifdef __cplusplus
 }
