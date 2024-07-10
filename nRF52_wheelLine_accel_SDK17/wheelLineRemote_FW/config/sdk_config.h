@@ -2628,7 +2628,7 @@
 // <e> SIMPLE_TIMER_ENABLED - app_simple_timer - Simple application timer functionality
 //==========================================================
 #ifndef SIMPLE_TIMER_ENABLED
-#define SIMPLE_TIMER_ENABLED 1
+#define SIMPLE_TIMER_ENABLED 0
 #endif
 // <o> SIMPLE_TIMER_CONFIG_FREQUENCY  - Timer frequency if in Timer mode
 
