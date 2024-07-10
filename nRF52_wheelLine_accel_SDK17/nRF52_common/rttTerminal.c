@@ -82,13 +82,12 @@ static void parsePowerdigit(uint8_t byte)
     }
 }
 
+#if COMPILE_RADIO_CC1101
 static void parseCloseIn(uint8_t byte)
 {
     if ('0' <= byte && '3' >= byte)
     {
-#if COMPILE_RADIO_CC1101
         cc1101_setCloseInRx(byte - '0');
-#endif // #if COMPILE_RADIO_CC1101
     }
     else
     {
@@ -98,6 +97,7 @@ static void parseCloseIn(uint8_t byte)
     }
     m_parserState = parserState_default;
 }
+#endif // #if COMPILE_RADIO_CC1101
 
 static void defaultParser(uint8_t byte)
 {

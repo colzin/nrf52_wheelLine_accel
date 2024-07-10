@@ -1,12 +1,12 @@
 /*
- * gpioDriver.h
+ * pinStuff.h
  *
  *  Created on: Mar 8, 2024
  *      Author: Collin
  */
 
-#ifndef SRC_GPIODRIVER_H_
-#define SRC_GPIODRIVER_H_
+#ifndef SRC_PINSTUFF_H_
+#define SRC_PINSTUFF_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,9 +20,9 @@ extern "C" {
  *  Functions
  ************************************************************************************/
 
-void gpioDriver_init(void);
+void pinStuff_init(void);
 
 #ifdef __cplusplus
 }
 #endif
-#endif /* SRC_GPIODRIVER_H_ */
+#endif /* SRC_PINSTUFF_H_ */

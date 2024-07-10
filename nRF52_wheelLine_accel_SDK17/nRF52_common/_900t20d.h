@@ -29,22 +29,15 @@ extern "C"
 
 #define _900t20d_MIN_SEND_ITVL_MS (TX_TIMEOUT_MS+RX_AFTER_TX_TIMEOUT_MS+20) //
 
-#define TX_TEST_ITVL_MS  0 // non-zero to run TX test poll
-
-#define PKT_SIZE_FIXED 1 // TODO switch to variable later to save power.
-#if PKT_SIZE_FIXED
-#define PKT_LEN 3
-#else
-#define PKT_LEN_VARIABLE 1
-#endif // #if PKT_SIZE_FIXED
-
+#define USE_PACKETS 0 // 1 to use more complex packets
 /*************************************************************************************
  * Functions
  ************************************************************************************/
 
-void _900t20d_setOutputPower(int8_t power_dBm);
+// Returns the valid value found in lookup
+int8_t _900t20d_setOutputPower(int8_t power_dBm);
 
-bool _900t20d_sendPacket(uint8_t byte);
+bool _900t20d_sendByte(uint8_t byte);
 void _900t20d_init(void);
 
 #endif // #if COMPILE_RADIO_900T20D

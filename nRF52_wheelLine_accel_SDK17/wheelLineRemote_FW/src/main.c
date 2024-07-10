@@ -23,7 +23,7 @@
 #endif // #if COMPILE_RADIO_900T20D
 
 #include "globalInts.h"
-#include "gpioDriver.h"
+#include "pinStuff.h"
 #include "heartbeatBlink.h"
 #include "lis2dh.h"
 #include "pollers.h"
@@ -75,7 +75,7 @@ static void initializeInputs(void)
     uartTerminal_init();
 #endif // #ifdef UART_TX_PIN
 
-    gpioDriver_init(); // Sets the machine state
+    pinStuff_init(); // Sets the machine state
 }
 
 static void initializeOutputs(void)
@@ -99,6 +99,20 @@ static void log_init(void)
     NRF_LOG_DEFAULT_BACKENDS_INIT();
 }
 
+#if NRF_SDH_ENABLED && RUN_BLE
+#else
+/**@brief Function for the Power Management.
+ */
+static void power_manage(void)
+{
+    // Use directly __WFE and __SEV macros since the SoftDevice is not available.
+    // Wait for event.
+    __WFE();
+    // Clear Event Register.
+    __SEV();
+    __WFE();
+}
+#endif //
 int main(void)
 {
     uptimeCounter_zero();
@@ -135,6 +149,10 @@ int main(void)
 #if NRF_SDH_ENABLED && RUN_BLE
     bleStuff_init();
     bleStuff_printBLEVersion();
+#else
+    nrf_drv_clock_lfclk_request(); // to keep timer running without softdevice
+    nrfx_clock_lfclk_start();
+    NRF_LOG_INFO("LFCLK is %s", nrfx_clock_lfclk_is_running() ? "Running" : "off");
 #endif // #if NRF_SDH_ENABLED && RUN_BLE
 
     uint32_t lastPoll_ms = uptimeCounter_getUptimeMs();
@@ -150,6 +168,8 @@ int main(void)
         // Go to low-power sleep between polls
 #if NRF_SDH_ENABLED && RUN_BLE
         sd_app_evt_wait();
+#else
+        power_manage();
 #endif // #if NRF_SDH_ENABLED && RUN_BLE
 
     }

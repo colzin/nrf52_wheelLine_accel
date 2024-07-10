@@ -76,36 +76,6 @@
 			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/cc1101.h</locationURI>
 		</link>
 		<link>
-			<name>nRF52_common/ev1527I2S.c</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/ev1527I2S.c</locationURI>
-		</link>
-		<link>
-			<name>nRF52_common/ev1527I2S.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/ev1527I2S.h</locationURI>
-		</link>
-		<link>
-			<name>nRF52_common/ev1527SPI.c</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/ev1527SPI.c</locationURI>
-		</link>
-		<link>
-			<name>nRF52_common/ev1527SPI.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/ev1527SPI.h</locationURI>
-		</link>
-		<link>
-			<name>nRF52_common/ev1527Timer.c</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/ev1527Timer.c</locationURI>
-		</link>
-		<link>
-			<name>nRF52_common/ev1527Timer.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/ev1527Timer.h</locationURI>
-		</link>
-		<link>
 			<name>nRF52_common/globalInts.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/globalInts.c</locationURI>
@@ -228,12 +198,12 @@
 		<link>
 			<name>nRF52_common/utils.c</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nrf52_wheelLine_accel/nRF52_wheelLine_accel_SDK17/nRF52_common/utils.c</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/utils.c</locationURI>
 		</link>
 		<link>
 			<name>nRF52_common/utils.h</name>
 			<type>1</type>
-			<location>D:/Users/Collin/Documents/Wheel line movers/nrf52_wheelLine_accel/nRF52_wheelLine_accel_SDK17/nRF52_common/utils.h</location>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/utils.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components</name>
@@ -452,6 +422,11 @@
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/ringbuf</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/simple_timer</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
@@ -871,6 +846,16 @@
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/ringbuf/nrf_ringbuf.h</locationURI>
 		</link>
 		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/simple_timer/app_simple_timer.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/simple_timer/app_simple_timer.c</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/simple_timer/app_simple_timer.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/simple_timer/app_simple_timer.h</locationURI>
+		</link>
+		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/strerror/nrf_strerror.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/strerror/nrf_strerror.c</locationURI>
@@ -1081,6 +1066,161 @@
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/config/nrf52832/armgcc/generic_gcc_nrf52.ld</locationURI>
 		</link>
 		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/apply_old_config.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/apply_old_config.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_clock.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_clock.c</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_clock.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_clock.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_common.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_common.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_comp.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_comp.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_gpiote.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_gpiote.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_i2s.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_i2s.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_lpcomp.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_lpcomp.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_pdm.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_pdm.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_power.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_power.c</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_power.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_power.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_ppi.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_ppi.c</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_ppi.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_ppi.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_pwm.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_pwm.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_qdec.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_qdec.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_qspi.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_qspi.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_rng.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_rng.c</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_rng.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_rng.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_rtc.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_rtc.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_saadc.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_saadc.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_spi.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_spi.c</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_spi.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_spi.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_spis.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_spis.c</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_spis.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_spis.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_swi.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_swi.c</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_swi.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_swi.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_systick.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_systick.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_timer.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_timer.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_twi.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_twi.c</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_twi.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_twi.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_twis.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_twis.h</locationURI>
+		</link>
+		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_uart.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_uart.c</locationURI>
@@ -1089,6 +1229,21 @@
 			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_uart.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_uart.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_usbd.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_usbd.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_usbd_errata.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_usbd_errata.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_wdt.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/integration/nrfx/legacy/nrf_drv_wdt.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/drivers/include</name>
@@ -1556,6 +1711,11 @@
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/mbr/headers/nrf_svc.h</locationURI>
 		</link>
 		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/mbr/hex/mbr_nrf52_2.4.1_licence-agreement.txt</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/mbr/hex/mbr_nrf52_2.4.1_licence-agreement.txt</locationURI>
+		</link>
+		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/mbr/hex/mbr_nrf52_2.4.1_mbr.hex</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/mbr/hex/mbr_nrf52_2.4.1_mbr.hex</locationURI>
@@ -1651,6 +1811,11 @@
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/s112/headers/nrf_svc.h</locationURI>
 		</link>
 		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/s112/hex/s112_nrf52_7.2.0_licence-agreement.txt</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/s112/hex/s112_nrf52_7.2.0_licence-agreement.txt</locationURI>
+		</link>
+		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/s112/hex/s112_nrf52_7.2.0_softdevice.hex</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/softdevice/s112/hex/s112_nrf52_7.2.0_softdevice.hex</locationURI>
@@ -1671,9 +1836,24 @@
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/dsp/license.txt</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/dsp/license.txt</locationURI>
+		</link>
+		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_armcc.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_armcc.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_armclang.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_armclang.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_armclang_ltm.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_armclang_ltm.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_compiler.h</name>
@@ -1684,6 +1864,11 @@
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_gcc.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_gcc.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_iccarm.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_iccarm.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/cmsis_version.h</name>
@@ -1706,6 +1891,41 @@
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_armv8mml.h</locationURI>
 		</link>
 		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm0.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm0.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm0plus.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm0plus.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm1.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm1.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm23.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm23.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm3.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm3.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm33.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm33.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm35p.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm35p.h</locationURI>
+		</link>
+		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm4.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm4.h</locationURI>
@@ -1714,6 +1934,16 @@
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm7.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_cm7.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_sc000.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_sc000.h</locationURI>
+		</link>
+		<link>
+			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_sc300.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/core_sc300.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/toolchain/cmsis/include/mpu_armv7.h</name>

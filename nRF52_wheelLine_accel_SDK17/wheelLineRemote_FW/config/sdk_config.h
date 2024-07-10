@@ -2625,6 +2625,42 @@
 #define NRF_STRERROR_ENABLED 1 // TODO 0 for release to shrink code size
 #endif
 
+// <e> SIMPLE_TIMER_ENABLED - app_simple_timer - Simple application timer functionality
+//==========================================================
+#ifndef SIMPLE_TIMER_ENABLED
+#define SIMPLE_TIMER_ENABLED 1
+#endif
+// <o> SIMPLE_TIMER_CONFIG_FREQUENCY  - Timer frequency if in Timer mode
+
+// <0=> 16 MHz
+// <1=> 8 MHz
+// <2=> 4 MHz
+// <3=> 2 MHz
+// <4=> 1 MHz
+// <5=> 500 kHz
+// <6=> 250 kHz
+// <7=> 125 kHz
+// <8=> 62.5 kHz
+// <9=> 31.25 kHz
+
+#ifndef SIMPLE_TIMER_CONFIG_FREQUENCY
+#define SIMPLE_TIMER_CONFIG_FREQUENCY 4
+#endif
+
+// <o> SIMPLE_TIMER_CONFIG_INSTANCE  - TIMER instance used
+
+// <0=> 0
+// <1=> 1
+// <2=> 2
+// <3=> 3
+// <4=> 4
+
+#ifndef SIMPLE_TIMER_CONFIG_INSTANCE
+#define SIMPLE_TIMER_CONFIG_INSTANCE 1
+#endif
+
+// </e>
+
 // <q> NRF_TWI_MNGR_ENABLED  - nrf_twi_mngr - TWI transaction manager
 
 #ifndef NRF_TWI_MNGR_ENABLED

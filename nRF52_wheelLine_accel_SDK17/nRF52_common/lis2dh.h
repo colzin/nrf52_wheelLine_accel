@@ -12,6 +12,7 @@
 extern "C" {
 #endif
 
+void lis2dh_poll(void);
 void lis2dh_init(void);
 
 #ifdef __cplusplus

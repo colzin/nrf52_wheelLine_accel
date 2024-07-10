@@ -21,7 +21,7 @@
 #include "pollers.h"
 #include "version.h"// for pindefs
 
-#define NRF_LOG_MODULE_NAME uartTerm
+#define NRF_LOG_MODULE_NAME uarte0
 #include "nrf_log.h"
 NRF_LOG_MODULE_REGISTER();
 
@@ -29,7 +29,9 @@ NRF_LOG_MODULE_REGISTER();
  *  Definitions
  ************************************************************************************/
 
-#define VERBOSE_ISR 1 // 0 for faster ISR
+#define VERBOSE_ISR_ERRORS 1 // 0 for faster ISR
+#define VERBOSE_ISR_TX 0 // 0 for faster ISR
+#define VERBOSE_ISR_RX 0 // 0 for faster ISR
 
 /*************************************************************************************
  *  Variables
@@ -65,15 +67,19 @@ static void uartEventHandler(nrf_drv_uart_event_t* p_event, void* p_context)
     {
         case NRF_DRV_UART_EVT_TX_DONE:
             m_txInProgress = false;
+#if VERBOSE_ISR_TX
+            NRF_LOG_DEBUG("TxDone")
+            ;
+#endif // #if VERBOSE_ISR_TX
         break;
         case NRF_DRV_UART_EVT_RX_DONE:
             { // Increment the indexes to log received byte
             if (p_event->data.rxtx.p_data[0] != m_rxData[m_rxDataWriteIndex])
             {
                 m_dataDiffered = true;
-#if VERBOSE_ISR
+#if VERBOSE_ISR_ERRORS
                 NRF_LOG_ERROR("DATA differed");
-#endif // #if VERBOSE_ISR
+#endif // #if VERBOSE_ISR_ERRORS
             }
             m_rxDataWriteIndex++;
             m_rxDataWriteIndex %= (int32_t)sizeof(m_rxData);
@@ -82,15 +88,15 @@ static void uartEventHandler(nrf_drv_uart_event_t* p_event, void* p_context)
             if (NRF_SUCCESS != ret)
             {
                 m_uartRxError = true;
-#if VERBOSE_ISR
-                NRF_LOG_ERROR("UART RX evt, error starting next RX");
-#endif // #if VERBOSE_ISR
+//#if VERBOSE_ISR_ERRORS // Always print this!
+                NRF_LOG_ERROR("UART RX evt had ERROR starting next RX");
+//#endif // #if VERBOSE_ISR_ERRORS
             }
             else
             {
-#if VERBOSE_ISR
-                NRF_LOG_ERROR("RX");
-#endif // #if VERBOSE_ISR
+#if VERBOSE_ISR_RX
+                NRF_LOG_DEBUG("RX");
+#endif // #if VERBOSE_ISR_RX
             }
         }
         break;
@@ -98,10 +104,10 @@ static void uartEventHandler(nrf_drv_uart_event_t* p_event, void* p_context)
         case NRF_DRV_UART_EVT_ERROR:
             m_uartEvent.type = p_event->type;
             m_uartEvent.data = p_event->data;
-#if VERBOSE_ISR
+#if VERBOSE_ISR_ERRORS
             NRF_LOG_ERROR("UART ERR mask 0x%x", p_event->data.error.error_mask)
             ;
-#endif // #if VERBOSE_ISR
+#endif // #if VERBOSE_ISR_ERRORS
         break;
     }
 }
