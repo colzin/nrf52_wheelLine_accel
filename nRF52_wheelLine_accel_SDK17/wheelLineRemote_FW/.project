@@ -396,8 +396,6 @@
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/ble/nrf_ble_gq</name>
-		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/atomic</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
