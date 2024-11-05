@@ -274,10 +274,10 @@ static uint32_t readBytes(uint8_t* pBytes, uint32_t len, uint32_t maxWait_ms)
         { // Not successful in receiving a byte, wait a bit
             nrf_delay_ms(1);
             elapsed_ms++;
-            if (elapsed_ms >= maxWait_ms)
-            { // Leave this while loop
-                break;
-            }
+        }
+        if (elapsed_ms >= maxWait_ms)
+        { // Leave this while loop
+            break;
         }
     }
     if (elapsed_ms < maxWait_ms)
