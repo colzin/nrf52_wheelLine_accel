@@ -7,9 +7,11 @@
 
 #include "sh1107I2C.h"
 
+#if COMPILE_SH1107
 #include "font.h"
 
 #include "i2c1.h"
+#include "nrf_delay.h"
 #include "pollers.h"
 #include "uptimeCounter.h"
 #include "version.h"
@@ -19,7 +21,7 @@
 #include "nrf_gpio.h"
 #endif // #ifdef FEATHERWING_OLED_RST_PIN
 
-#define NRF_LOG_MODULE_NAME sh1107
+#define NRF_LOG_MODULE_NAME sh1107I2C
 #include "nrf_log.h"
 NRF_LOG_MODULE_REGISTER();
 
@@ -277,11 +279,11 @@ static void sh1107_poweron(void)
 static void sh1107_reset(void)
 {
 //    gpio_put(sh1107->res, 1);
-//    sleep_ms(1);
+//    nrf_delay_ms(1);
 //    gpio_put(sh1107->res, 0);
-//    sleep_ms(20);
+//    nrf_delay_ms(20);
 //    gpio_put(sh1107->res, 1);
-//    sleep_ms(20);
+//    nrf_delay_ms(20);
 #ifdef FEATHERWING_OLED_RST_PIN
     NRF_P0->OUTSET = 1U << FEATHERWING_OLED_RST_PIN;
     nrf_delay_ms(1);
@@ -579,10 +581,10 @@ void sh1107I2C_init(void)
 //    sh1107_i2c config = {0}; Don't do this I2C layer stuff
     sh1107_init(128, 64);
 
-    sh1107_fill(&sh1107, 0, 0, 128, 128, 0);
-        sh1107_text(&sh1107, "hello world!", 0, 0, 1, 16, &font_arial, text_align_left);
-        sh1107_show(&sh1107);
-        sleep_ms(100);
+    sh1107_fill( 0, 0, 128, 128, 0);
+//        sh1107_text( "hello world!", 0, 0, 1, 16, &font_arial, text_align_left);
+        sh1107_show();
+        nrf_delay_ms(100);
 
 #else
     // Read some DATA RAM
@@ -600,3 +602,5 @@ void sh1107I2C_init(void)
     pollers_registerPoller(sh1107I2CPoll);
 
 }
+
+#endif // #if COMPILE_SH1107

@@ -150,9 +150,10 @@ int main(void)
     bleStuff_init();
     bleStuff_printBLEVersion();
 #else
-    nrf_drv_clock_lfclk_request(); // to keep timer running without softdevice
-    nrfx_clock_lfclk_start();
-    NRF_LOG_INFO("LFCLK is %s", nrfx_clock_lfclk_is_running() ? "Running" : "off");
+#include "nrf_clock.h"
+//    nrf_clock_lfclk_request(); // to keep timer running without softdevice
+//    nrf_clock_lfclk_start();
+    NRF_LOG_INFO("LFCLK is %s", nrf_clock_lf_is_running() ? "Running" : "off");
 #endif // #if NRF_SDH_ENABLED && RUN_BLE
 
     uint32_t lastPoll_ms = uptimeCounter_getUptimeMs();

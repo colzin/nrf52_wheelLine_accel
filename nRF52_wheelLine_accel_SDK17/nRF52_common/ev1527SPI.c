@@ -5,17 +5,15 @@
  *      Author: Collin Moore
  */
 
-#include "sdk_config.h"
 #include "ev1527SPI.h"
 
-#if NRFX_SPI_ENABLED
+#if COMPILE_EV1527
 
 #include "globalInts.h"
 #include "nrfx_spi.h"
 #include "nrf_gpio.h"
 #include "pollers.h"
 #include "uptimeCounter.h"
-#include "version.h"
 
 #define NRF_LOG_MODULE_NAME ev1527SPI
 #include "nrf_log.h"
@@ -519,4 +517,5 @@ void ev1527SPI_turnOff(uint8_t txPin)
     nrfx_spi_uninit(&m_spi);
     setupRadioOutput(txPin);
 }
-#endif // #if NRFX_SPI_ENABLED
+#endif // #if COMPILE_EV1527
+

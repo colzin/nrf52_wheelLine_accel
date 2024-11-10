@@ -8,7 +8,6 @@
 #include "_900t20d.h"
 
 #if COMPILE_RADIO_900T20D
-#include "_4digit7seg.h"
 
 #include "globalInts.h" // To set machine state
 
@@ -670,7 +669,7 @@ void _900t20d_init(void)
         NRF_LOG_ERROR("Error reading version info!");
     }
     // TODO set min TX power here
-    m_desiredTxSetting = txPwr_20dBm; // Init here so that our call changes it
+    m_desiredTxSetting = txPwr_10dBm; // Init here so that our call changes it
     _900t20d_setOutputPower(-30); // Try to set as low as possible
     if (m_newTxPower)
     {

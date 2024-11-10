@@ -1,3 +1,8 @@
+
+
+#include "version.h"
+
+#if COMPILE_SH1107
 #include "font.h"
 
 #include <stdio.h>
@@ -71,3 +76,5 @@ font_char_t* font_get_char(font_t* font, uint16_t size, char chr)
 {
     return &(*font)[size / 8][chr];
 }
+
+#endif // #if COMPILE_SH1107

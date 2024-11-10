@@ -5,15 +5,12 @@
  *      Author: Collin Moore
  */
 
-#include "sdk_config.h"
-
 #include "i2c1.h"
 
+#if COMPILE_I2C
 #include "pollers.h"
 #include "nrfx_twi.h"
 #include "uptimeCounter.h"
-
-#include "version.h"
 
 #define NRF_LOG_MODULE_NAME I2C
 #include "nrf_log.h"
@@ -234,3 +231,5 @@ ret_code_t i2c1_init(void)
     }
     return NRF_SUCCESS;
 }
+
+#endif // #if COMPILE_I2C

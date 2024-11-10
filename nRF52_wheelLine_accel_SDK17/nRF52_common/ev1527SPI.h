@@ -12,6 +12,8 @@
 extern "C" {
 #endif
 
+#include "version.h"
+#if COMPILE_EV1527
 #include "globalInts.h"
 #include <stdint.h>
 
@@ -20,6 +22,8 @@ void ev1527_setSendState(machineState_t currentState);
 void ev1527SPI_init(uint8_t txPin);
 
 void ev1527SPI_turnOff(uint8_t txPin);
+
+#endif //#if COMPILE_EV1527
 
 #ifdef __cplusplus
 }

@@ -12,6 +12,8 @@
 extern "C" {
 #endif
 
+#include "version.h"
+#if COMPILE_4DIGIT7SEG
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -32,7 +34,9 @@ void _4digit7seg_writeStr(const char* buffer);
 
 void _4digit7seg_init(void);
 
-#ifdef __c
-plusplus}
+#endif // #if COMPILE_4DIGIT7SEG
+
+#ifdef __cplusplus
+}
 #endif
 #endif /* SRC__4DIGIT7SEG_H_ */

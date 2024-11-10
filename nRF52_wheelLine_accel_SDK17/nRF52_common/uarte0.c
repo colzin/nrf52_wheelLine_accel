@@ -6,6 +6,7 @@
  */
 
 #include "uarte0.h"
+#include "version.h"
 
 #if COMPILE_RADIO_CC1101
 #include "cc1101.h"
@@ -19,7 +20,6 @@
 #include "nrf_delay.h" // For reboot print
 #include "nrf_drv_uart.h"
 #include "pollers.h"
-#include "version.h"// for pindefs
 
 #define NRF_LOG_MODULE_NAME uarte0
 #include "nrf_log.h"
@@ -148,7 +148,7 @@ static void trySend(void)
 
 ret_code_t uarte0_enqueue(const uint8_t* pBytes, uint32_t numBytes)
 {
-#if (UART_RX_PIN && UART_TX_PIN) || (_900T20D_UART_FROM_MODULE && _900T20D_UART_TO_MODULE)
+#if (UART_RX_PIN && UART_TX_PIN) || (_900T20D_RXD_PIN && _900T20D_TXD_PIN)
     for (uint32_t i = 0; i < numBytes; i++)
     {
         if (((m_txDataWriteIndex + 1) % (int32_t)sizeof(m_txData)) == m_txDataReadIndex)
@@ -198,7 +198,7 @@ static bool componentInit(void)
     uartCfg.pselrts = NRF_UARTE_PSEL_DISCONNECTED;
     uartCfg.pselrxd = UART_RX_PIN;
     uartCfg.pseltxd = UART_TX_PIN;
-#elif (_900T20D_UART_FROM_MODULE && _900T20D_UART_TO_MODULE)
+#elif (_900T20D_RXD_PIN && _900T20D_TXD_PIN)
     nrf_drv_uart_config_t uartCfg;
     uartCfg.baudrate = NRF_UARTE_BAUDRATE_9600; // TODO baud rate
     uartCfg.hwfc = NRF_UARTE_HWFC_DISABLED;
@@ -207,11 +207,11 @@ static bool componentInit(void)
     uartCfg.parity = NRF_UARTE_PARITY_EXCLUDED;
     uartCfg.pselcts = NRF_UARTE_PSEL_DISCONNECTED;
     uartCfg.pselrts = NRF_UARTE_PSEL_DISCONNECTED;
-    uartCfg.pselrxd = _900T20D_UART_FROM_MODULE;
-    uartCfg.pseltxd = _900T20D_UART_TO_MODULE;
+    uartCfg.pselrxd = _900T20D_TXD_PIN; // Our RX to Module TX
+    uartCfg.pseltxd = _900T20D_RXD_PIN; // Our TX to Module RX
 #endif // #if usb or 900T20D
 
-#if (UART_RX_PIN && UART_TX_PIN) || (_900T20D_UART_FROM_MODULE && _900T20D_UART_TO_MODULE)
+#if (UART_RX_PIN && UART_TX_PIN) || (_900T20D_RXD_PIN && _900T20D_TXD_PIN)
     ret_code_t ret = nrf_drv_uart_init(&m_uartInst, &uartCfg, uartEventHandler);
     if (NRF_SUCCESS != ret)
     {
@@ -228,7 +228,7 @@ static bool componentInit(void)
 #else
 #warning "UART terminal not present"
     return true;
-#endif // #if (UART_RX_PIN && UART_TX_PIN) || (_900T20D_UART_FROM_MODULE && _900T20D_UART_TO_MODULE)
+#endif // #if (UART_RX_PIN && UART_TX_PIN) || (_900T20D_RXD_PIN && _900T20D_TXD_PIN)
 }
 
 static void uartPoll(void)

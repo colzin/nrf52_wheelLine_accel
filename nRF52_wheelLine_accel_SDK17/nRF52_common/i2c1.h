@@ -16,6 +16,9 @@ extern "C" {
 #include <stdint.h>
 #include "sdk_errors.h"
 
+#include "version.h"
+
+#if COMPILE_I2C
 ret_code_t i2c1_readByte(uint8_t devAddr, uint8_t regAddr, uint8_t* pData);
 ret_code_t i2c1_readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t* pData, uint32_t len);
 ret_code_t i2c1_writeBytes(uint8_t devAddr, uint8_t* pByte, uint32_t len);
@@ -23,6 +26,7 @@ ret_code_t i2c1_tx(uint8_t devAddr, uint8_t* pByte, uint32_t len, bool repeatedS
 ret_code_t i2c1_rx(uint8_t devAddr, uint8_t* pData, uint32_t len);
 
 ret_code_t i2c1_init(void);
+#endif // #if COMPILE_I2C
 
 #ifdef __cplusplus
 }

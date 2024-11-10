@@ -12,7 +12,11 @@
 extern "C" {
 #endif
 
+#include "version.h"
+#if COMPILE_SH1107
 void sh1107I2C_init(void);
+
+#endif // #if COMPILE_SH1107
 
 #ifdef __cplusplus
 }

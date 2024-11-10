@@ -7,10 +7,9 @@
 
 #include "_4digit7seg.h"
 
+#if COMPILE_4DIGIT7SEG
 #include "globalInts.h"
 #include "i2c1.h"
-
-#include "version.h" // for startup print
 
 #define NRF_LOG_MODULE_NAME _4digit7seg
 #include "nrf_log.h"
@@ -480,4 +479,6 @@ void _4digit7seg_init(void)
 
     pollers_registerPoller(poll);
 }
+
+#endif // #if COMPILE_4DIGIT7SEG
 

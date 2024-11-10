@@ -46,6 +46,16 @@
 			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/_4digit7seg.h</locationURI>
 		</link>
 		<link>
+			<name>nRF52_common/_900t20d.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/_900t20d.c</locationURI>
+		</link>
+		<link>
+			<name>nRF52_common/_900t20d.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/_900t20d.h</locationURI>
+		</link>
+		<link>
 			<name>nRF52_common/bleStuff.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/bleStuff.c</locationURI>
@@ -166,6 +176,11 @@
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
+			<name>nRF52_common/sh1107-pico-c-master</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
 			<name>nRF52_common/sh1107I2C.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/sh1107I2C.c</locationURI>
@@ -194,6 +209,16 @@
 			<name>nRF52_common/uartTerminal.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/uartTerminal.h</locationURI>
+		</link>
+		<link>
+			<name>nRF52_common/uarte0.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/uarte0.c</locationURI>
+		</link>
+		<link>
+			<name>nRF52_common/uarte0.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/uarte0.h</locationURI>
 		</link>
 		<link>
 			<name>nRF52_common/uptimeCounter.c</name>
@@ -262,6 +287,16 @@
 		</link>
 		<link>
 			<name>nRF52_common/segger_RTT_v788j/Syscalls</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>nRF52_common/sh1107-pico-c-master/include</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>nRF52_common/sh1107-pico-c-master/src</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
@@ -339,6 +374,21 @@
 			<name>nRF52_common/segger_RTT_v788j/Syscalls/SEGGER_RTT_Syscalls_GCC.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/segger_RTT_v788j/Syscalls/SEGGER_RTT_Syscalls_GCC.c</locationURI>
+		</link>
+		<link>
+			<name>nRF52_common/sh1107-pico-c-master/include/font.h</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/sh1107-pico-c-master/include/font.h</locationURI>
+		</link>
+		<link>
+			<name>nRF52_common/sh1107-pico-c-master/include/fonts</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>nRF52_common/sh1107-pico-c-master/src/font.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/sh1107-pico-c-master/src/font.c</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/ble/ble_advertising</name>
@@ -549,6 +599,11 @@
 			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/soc</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>nRF52_common/sh1107-pico-c-master/include/fonts/arial.ttf</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/sh1107-pico-c-master/include/fonts/arial.ttf</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/ble/ble_advertising/ble_advertising.c</name>
@@ -1351,11 +1406,6 @@
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/nrf.h</locationURI>
 		</link>
 		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/nrf51_to_nrf52.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/nrf51_to_nrf52.h</locationURI>
-		</link>
-		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/nrf52.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/nrf52.h</locationURI>
@@ -1421,11 +1471,6 @@
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/startup_config.h</locationURI>
 		</link>
 		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/system_nrf.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/system_nrf.h</locationURI>
-		</link>
-		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/system_nrf52.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/system_nrf52.c</locationURI>
@@ -1439,11 +1484,6 @@
 			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/system_nrf52_approtect.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/system_nrf52_approtect.h</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/system_nrf53_approtect.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/system_nrf53_approtect.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/soc/nrfx_atomic.c</name>
@@ -1809,11 +1849,6 @@
 			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/drivers/include/nrfx_saadc.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/drivers/include/nrfx_saadc.h</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/drivers/include/nrfx_saadc_v2.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/drivers/include/nrfx_saadc_v2.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/drivers/include/nrfx_spi.h</name>

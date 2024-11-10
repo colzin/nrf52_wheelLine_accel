@@ -17,10 +17,10 @@ extern "C" {
 ////////////////////////////   PINS on nRF52 DK PCA10040
 
 #define PCA10040_HAS_XTAL 1 // XTAL on PCA10040
-#ifndef PCA10040_HAS_XTAL
+#if PCA10040_HAS_XTAL
 #define PCA10040_XTAL_PIN_1 0 // p0.00 used for 32.768kHz XTAL on PCA10040
 #define PCA10040_XTAL_PIN_2 1 // p0.01 used for 32.768kHz XTAL on PCA10040
-#endif // #ifndef PCA10040_HAS_XTAL
+#endif // #if PCA10040_HAS_XTAL
 
 #define PCA10040_GPIO2     2 // p0.02 routed to a pin on PCA10040, otherwise unused
 #define PCA10040_GPIO3     3 // p0.03 routed to a pin on PCA10040, otherwise unused

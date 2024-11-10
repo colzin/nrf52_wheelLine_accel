@@ -159,8 +159,8 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #elif defined (NRF52832_XXAA) || defined (NRF52832_XXAB)
     #include "nrf52.h"
     #include "nrf52_bitfields.h"
-    #include "nrf51_to_nrf52.h"
-    #include "nrf52_name_change.h"
+//    #include "nrf51_to_nrf52.h"
+//    #include "nrf52_name_change.h"
 #elif defined (NRF52833_XXAA)
     #include "nrf52833.h"
     #include "nrf52833_bitfields.h"
@@ -169,8 +169,8 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #elif defined (NRF52840_XXAA)
     #include "nrf52840.h"
     #include "nrf52840_bitfields.h"
-    #include "nrf51_to_nrf52840.h"
-    #include "nrf52_to_nrf52840.h"
+//    #include "nrf51_to_nrf52840.h"
+//    #include "nrf52_to_nrf52840.h"
 
 #elif defined (NRF5340_XXAA)
     #if defined(NRF_APPLICATION)

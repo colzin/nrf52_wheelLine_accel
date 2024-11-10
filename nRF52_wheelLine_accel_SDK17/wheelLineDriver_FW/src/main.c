@@ -6,24 +6,21 @@
  */
 
 #include "sdk_config.h"
+#include "version.h"
 
-#include "_4digit7seg.h"
 
 #if NRF_SDH_ENABLED
 #include "bleStuff.h"
 #endif // #if NRF_SDH_ENABLED
 
-#include "cc1101.h"
-#include "ev1527SPI.h"
 
 #include "heartbeatBlink.h"
 #include "pollers.h"
 #include "relayGpios.h"
 #include "rttTerminal.h"
-#include "sh1107I2C.h"
+
 #include <stdint.h>
 #include "uptimeCounter.h"
-#include "version.h"
 
 #define NRF_LOG_MODULE_NAME main
 #include "nrf_log.h"
@@ -61,16 +58,24 @@ static void initializeInputs(void)
 #ifdef UART_TX_PIN
     uartTerminal_init();
 #endif // #ifdef UART_TX_PIN
-
+// Init radio
+#if COMPILE_RADIO_CC1101
     cc1101_init(cc1101_packetRX); // We listen by default
+#elif COMPILE_RADIO_900T20D
+    _900t20d_init();
+#endif // #if COMPILE_RADIO_CC1101
 }
 
 static void initializeOutputs(void)
 { // outputs from our system, may make decisions based on pollers run as inputs
 // TODO Init output pin managers
     heartblink_init();
+#if _4DIGIT7SEG
     _4digit7seg_init();
+#endif // #if _4DIGIT7SEG
+#if USE_SH1107
     sh1107I2C_init();
+#endif // #if USE_SH1107
     relayGpios_init(); // Outputs to relays
 }
 static void log_init(void)
@@ -81,15 +86,10 @@ static void log_init(void)
 
 int main(void)
 {
-
     uptimeCounter_zero();
     // Get logging up
     log_init();
-#if COMPILE_FOR_PCA10040
-    NRF_LOG_DEBUG("%s start, compiled for PCA10040", DEVICE_NAME);
-#elif COMPILE_FOR_FEATHER
-    NRF_LOG_DEBUG("%s start, compiled for FEATHER", DEVICE_NAME);
-#endif //
+    NRF_LOG_DEBUG("%s start, compiled for %s, radio %s", DEVICE_NAME, BOARD_NAME, RADIO_NAME);
 
     // Start uptime tick timer, so we know what time it is
     uptimeCounter_init();
@@ -102,6 +102,8 @@ int main(void)
     // Run initialization functions as needed, they may register pollers now
     initializeInputs();
     initializeOutputs();
+
+    #if _4DIGIT7SEG
     // Put version into a string on the screen
     char strBuf[8]; // Could have dots
     int strLen = snprintf(strBuf, sizeof(strBuf), "v%d.%d.%d", VERSION_MAJOR, VERSION_MINOR, VERSION_SUBMINOR);
@@ -109,6 +111,8 @@ int main(void)
     {
         _4digit7seg_writeStr(strBuf);
     }
+#endif // #if _4DIGIT7SEG
+
     // TODO start BLE for dropping to DFU, softDevice calls
 #if NRF_SDH_ENABLED && RUN_BLE
     bleStuff_init();

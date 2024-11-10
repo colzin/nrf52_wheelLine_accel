@@ -80,11 +80,11 @@ extern "C" {
 #define SOC_ECB_CLEARTEXT_LENGTH          (16)                       /**< ECB cleartext length. */
 #define SOC_ECB_CIPHERTEXT_LENGTH         (SOC_ECB_CLEARTEXT_LENGTH) /**< ECB ciphertext length. */
 
-#define SD_EVT_IRQn                       (SWI2_IRQn)        /**< SoftDevice Event IRQ number. Used for both protocol events and SoC events. */
-#define SD_EVT_IRQHandler                 (SWI2_IRQHandler)  /**< SoftDevice Event IRQ handler. Used for both protocol events and SoC events.
+#define SD_EVT_IRQn                       (SWI2_EGU2_IRQn)        /**< SoftDevice Event IRQ number. Used for both protocol events and SoC events. */
+#define SD_EVT_IRQHandler                 (SWI2_EGU2_IRQHandler)  /**< SoftDevice Event IRQ handler. Used for both protocol events and SoC events.
                                                                        The default interrupt priority for this handler is set to 6 */
-#define RADIO_NOTIFICATION_IRQn           (SWI1_IRQn)        /**< The radio notification IRQ number. */
-#define RADIO_NOTIFICATION_IRQHandler     (SWI1_IRQHandler)  /**< The radio notification IRQ handler.
+#define RADIO_NOTIFICATION_IRQn           (SWI1_EGU1_IRQn)        /**< The radio notification IRQ number. */
+#define RADIO_NOTIFICATION_IRQHandler     (SWI1_EGU1_IRQHandler)  /**< The radio notification IRQ handler.
                                                                        The default interrupt priority for this handler is set to 6 */
 #define NRF_RADIO_LENGTH_MIN_US           (100)               /**< The shortest allowed radio timeslot, in microseconds. */
 #define NRF_RADIO_LENGTH_MAX_US           (100000)            /**< The longest allowed radio timeslot, in microseconds. */

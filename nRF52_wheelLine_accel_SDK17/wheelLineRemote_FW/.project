@@ -36,6 +36,11 @@
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
+			<name>sh1107-pico-c-master</name>
+			<type>2</type>
+			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/sh1107-pico-c-master</locationURI>
+		</link>
+		<link>
 			<name>nRF52_common/_4digit7seg.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF52_common/_4digit7seg.c</locationURI>

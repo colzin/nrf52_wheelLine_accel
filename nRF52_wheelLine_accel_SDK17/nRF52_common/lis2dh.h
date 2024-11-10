@@ -12,8 +12,12 @@
 extern "C" {
 #endif
 
+
+#include "version.h"
+#if COMPILE_LIS2DH
 void lis2dh_poll(void);
 void lis2dh_init(void);
+#endif // #if COMPILE_LIS2DH
 
 #ifdef __cplusplus
 }

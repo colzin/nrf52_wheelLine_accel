@@ -7,6 +7,7 @@
 
 #include "lis2dh.h"
 
+#if COMPILE_LIS2DH
 #include "globalInts.h"
 #include "i2c1.h"
 #include <math.h> // for atanf and pi
@@ -1228,3 +1229,4 @@ void lis2dh_init(void)
 
     pollers_registerPoller(lis2dh12Poll);
 }
+#endif // #if COMPILE_LIS2DH
