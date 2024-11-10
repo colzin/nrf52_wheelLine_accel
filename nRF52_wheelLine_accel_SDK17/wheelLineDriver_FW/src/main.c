@@ -8,18 +8,36 @@
 #include "sdk_config.h"
 #include "version.h"
 
-
 #if NRF_SDH_ENABLED
 #include "bleStuff.h"
 #endif // #if NRF_SDH_ENABLED
 
+#if COMPILE_RADIO_CC1101
+#include "cc1101.h"
+#endif // #if COMPILE_RADIO_CC1101
+
+#if COMPILE_RADIO_900T20D
+#include "_900t20d.h"
+#endif // #if COMPILE_RADIO_900T20D
 
 #include "heartbeatBlink.h"
+
+#if COMPILE_LIS2DH
+#include "lis2dh.h"
+#endif // #if COMPILE_LIS2DH
+
 #include "pollers.h"
 #include "relayGpios.h"
 #include "rttTerminal.h"
-
+#if COMPILE_SH1107
+#include "sh1107I2C.h"
+#endif // #if COMPILE_SH1107
 #include <stdint.h>
+
+#ifdef UART_TX_PIN
+#include "uartTerminal.h"
+#endif // #ifdef UART_TX_PIN
+
 #include "uptimeCounter.h"
 
 #define NRF_LOG_MODULE_NAME main
@@ -84,12 +102,38 @@ static void log_init(void)
     NRF_LOG_DEFAULT_BACKENDS_INIT();
 }
 
+/**@brief Function for the Power Management.
+ */
+static void power_manage(void)
+{
+#define FPU_EXCEPTION_MASK 0x0000009F
+    __set_FPSCR(__get_FPSCR() & ~(FPU_EXCEPTION_MASK));
+    (void)__get_FPSCR();
+    NVIC_ClearPendingIRQ(FPU_IRQn);
+
+#if NRF_SDH_ENABLED && RUN_BLE
+    sd_app_evt_wait();
+#else
+    // Use directly __WFE and __SEV macros since the SoftDevice is not available.
+    // Wait for event.
+    __WFE();
+    // Clear Event Register.
+    __SEV();
+    __WFE();
+#endif // 		#if NRF_SDH_ENABLED && RUN_BLE
+
+}
+
 int main(void)
 {
     uptimeCounter_zero();
     // Get logging up
     log_init();
     NRF_LOG_DEBUG("%s start, compiled for %s, radio %s", DEVICE_NAME, BOARD_NAME, RADIO_NAME);
+
+//    NRF_LOG_DEBUG("DEVid 0x%x %x, addr 0x%x %x", NRF_FICR->DEVICEID[1],
+//                  NRF_FICR->DEVICEID[0],
+//                  NRF_FICR->DEVICEADDR[1], NRF_FICR->DEVICEADDR[0]);
 
     // Start uptime tick timer, so we know what time it is
     uptimeCounter_init();
@@ -102,21 +146,24 @@ int main(void)
     // Run initialization functions as needed, they may register pollers now
     initializeInputs();
     initializeOutputs();
-
-    #if _4DIGIT7SEG
     // Put version into a string on the screen
     char strBuf[8]; // Could have dots
     int strLen = snprintf(strBuf, sizeof(strBuf), "v%d.%d.%d", VERSION_MAJOR, VERSION_MINOR, VERSION_SUBMINOR);
     if (0 < strLen)
     {
+	    #if COMPILE_4DIGIT7SEG
         _4digit7seg_writeStr(strBuf);
+		#endif // #if COMPILE_4DIGIT7SEG
     }
-#endif // #if _4DIGIT7SEG
-
     // TODO start BLE for dropping to DFU, softDevice calls
 #if NRF_SDH_ENABLED && RUN_BLE
     bleStuff_init();
     bleStuff_printBLEVersion();
+#else
+#include "nrf_clock.h"
+//    nrf_clock_lfclk_request(); // to keep timer running without softdevice
+//    nrf_clock_lfclk_start();
+    NRF_LOG_INFO("LFCLK is %s", nrf_clock_lf_is_running() ? "Running" : "off");
 #endif // #if NRF_SDH_ENABLED && RUN_BLE
 
     uint32_t lastPoll_ms = uptimeCounter_getUptimeMs();
@@ -130,8 +177,7 @@ int main(void)
             pollers_runAll();
         }
         // Go to low-power sleep between polls
-#if NRF_SDH_ENABLED && RUN_BLE
-        sd_app_evt_wait();
+		power_manage();
 #endif // #if NRF_SDH_ENABLED && RUN_BLE
 
     }

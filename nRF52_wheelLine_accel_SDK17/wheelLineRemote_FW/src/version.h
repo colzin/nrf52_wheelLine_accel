@@ -12,52 +12,71 @@
 extern "C" {
 #endif
 
+#include "sdk_config.h"
+
 #define DEVICE_NAME      "WLR"  /**< Name of device. Will be included in the advertising data. */
 
-#define VERSION_MAJOR    0 // 1 byte
-#define VERSION_MINOR    0 // 1 byte
-#define VERSION_SUBMINOR 1 // 1 byte
-#define COMPILE_FOR_PCA10040 1
-#if (!COMPILE_FOR_PCA10040)
-#define COMPILE_FOR_FEATHER 1
-#endif // #if (!COMPILE_FOR_PCA10040)
+#define VERSION_MAJOR_BYTE  0 // 1 byte
+#define VERSION_MINOR_BYTE  0 // 1 byte
+#define VERSION_PATCH_BYTE  1 // 1 byte
 
-#if (COMPILE_FOR_FEATHER&& COMPILE_FOR_PCA10040)
-#error "Define one board to run on"
-#endif // #if (COMPILE_FOR_FEATHER&& COMPILE_FOR_PCA10040)
-
+// choose radio
 #define COMPILE_RADIO_CC1101 0
+#define COMPILE_EV1527 0
+#define COMPILE_RADIO_900T20D 1
+
 #if COMPILE_RADIO_CC1101
 #warning "Compiling for CC1101 radio"
-#else
-#define COMPILE_RADIO_900T20D 1
-#if COMPILE_RADIO_900T20D
+#define RADIO_NAME "CC1101"
+#if COMPILE_EV1527
+#warning "EV1527 for CC1101"
+#endif // #if COMPILE_EV1527
+#elif COMPILE_RADIO_900T20D
 #warning "Compiling for 900T20D radio"
+#define RADIO_NAME "900T20D"
 #else
 #error "define radio"
-#endif // #if COMPILE_RADIO_900T20D
 #endif // #if COMPILE_RADIO_CC1101
+
+// choose display
+#define COMPILE_SH1107 0
+#define COMPILE_4DIGIT7SEG 0
+#define COMPILE_EINK 0
+
+// choose board
+
+#if defined(NRF52832_XXAA)
+#define COMPILE_FOR_PCA10040 1 // Turn this on to use PCA10040, dev board for nRF52832
+#define COMPILE_FOR_FEATHER 0 // Turn this on for feather
+#define COMPILE_FOR_PCA10056 0 // Dev board for nRF52840
+#elif defined(NRF52840_XXAA)
+#define COMPILE_FOR_PCA10040 0
+#define  COMPILE_FOR_FEATHER 0
+#define COMPILE_FOR_PCA10056 1 // Dev board for nRF52840
+#endif // #if defined(NRF52832_XXAA)
+
+#if (COMPILE_RADIO_CC1101||COMPILE_EINK)
+#define COMPILE_SPI 1
+#else
+#define COMPILE_SPI 0
+#endif // #if (COMPILE_RADIO_CC1101||COMPILE_EINK)
+
+#if (COMPILE_LIS2DH12||COMPILE_4DIGIT7SEG)
+#define COMPILE_I2C 1
+#else
+#define COMPILE_I2C 0
+#endif // #if (COMPILE_LIS2DH12||COMPILE_4DIGIT7SEG)
 
 #include "pindefs.h"
 ////////////////////////// pins NAMES THAT WE USE, mapping to each MCU in pindefs.h:
 
 #if COMPILE_FOR_PCA10040
 #warning "Compiling for PCA10040"
+#define BOARD_NAME "PCA10040"
 
 #define HEARTBEAT_LED_GPIO_NUM PCA10040_GPIO17_LED_1
 
-// Use the pins for either EV1527 format
-#define SPI2_SCK_PIN    PCA10040_GPIO7_UART_CTS // Use an un-useable pin, we don't care about this signal.
-//#define SPI2_MOSI_PIN   PCA10040_GPIO4
-
 #if COMPILE_RADIO_CC1101
-#define CC1101_GDO2_PIN   PCA10040_GPIO5_UART_RTS
-
-// SPI0 for e-ink, CC1101, etc...
-#define SPI0_MISO_PIN   PCA10040_GPIO12
-#define SPI0_MOSI_PIN   PCA10040_GPIO6_UART_TXD
-#define SPI0_SCK_PIN    PCA10040_GPIO11
-
 /* CC1101 pinout:
  * GD0 goes to ?
  * GD1 not pinned out on Solu 8-pin module
@@ -65,47 +84,33 @@ extern "C" {
  * CS goes to ?
  * MOSI, MISO, SCK pins. So use on "SPI0"
  */
-#define SPI0_CC1101_CS_GPIO PCA10040_GPIO3
+#define CC1101_GDO2_PIN   PCA10040_GPIO5_UART_RTS
+#define SPI_CC1101_CS_GPIO PCA10040_GPIO3
+#if COMPILE_EV1527
+// Use the pins for either EV1527 format
+#define SPI2_SCK_PIN    PCA10040_GPIO7_UART_CTS // Use an un-useable pin, we don't care about this signal.
+#define SPI2_MOSI_PIN   PCA10040_GPIO4
+#endif // #if COMPILE_EV1527
+
+#elif COMPILE_RADIO_900T20D
+#define _900T20D_M0_PIN PCA10040_GPIO5_UART_RTS
+#define _900T20D_M1_PIN PCA10040_GPIO6_UART_TXD
+#define _900T20D_RXD_PIN PCA10040_GPIO11
+#define _900T20D_TXD_PIN PCA10040_GPIO12
+#define _900T20D_AUX_PIN   PCA10040_GPIO7_UART_CTS
+#if COMPILE_SPI
+#error "can't use these pins"
+#endif // #if COMPILE_SPI
 #endif // #if COMPILE_RADIO_CC1101
 
-#if COMPILE_RADIO_900T20D
-#define _900T20D_AUX_PIN  PCA10040_GPIO7_UART_CTS
-
-#define _900T20D_M0_PIN   PCA10040_GPIO5_UART_RTS
-#define _900T20D_M1_PIN   PCA10040_GPIO6_UART_TXD
-#define _900T20D_UART_TO_MODULE    PCA10040_GPIO11
-#define _900T20D_UART_FROM_MODULE   PCA10040_GPIO12
-#endif // #if COMPILE_RADIO_CC1101
-
-/* I2C1:
- * Has LIS2DH12 on it, LED screen 7-segment
- */
-#define I2C1_SCL_PIN    PCA10040_GPIO28
-#define I2C1_SDA_PIN    PCA10040_GPIO29
-
-#define FEATHERWING_OLED_RST_PIN PCA10040_GPIO3
-
-
-// GPIOs for buttons
-#define BUTTON_START_PIN    PCA10040_GPIO13_BUTTON_1
-#define BUTTON_REV_PIN    PCA10040_GPIO14_BUTTON_2
-#define BUTTON_FWD_PIN    PCA10040_GPIO15_BUTTON_3
-
-#elif COMPILE_FOR_FEATHER
-#warning "Compiling for nRF52 Bluefruit Feather"
-#define HEARTBEAT_LED_GPIO_NUM FEATHER_ONBOARD_GPIO17_LED1
-
-// For EV1527SPI
-#define SPI2_SCK_PIN    FEATHER_GPIO16_16
-#define SPI2_MOSI_PIN   FEATHER_GPIO15_15
-
-#define CC1101_GDO2_PIN   FEATHER_GPIO28_A4
-
+#if COMPILE_SPI
 // SPI0 for e-ink, CC1101, etc...
-#define SPI0_MISO_PIN   FEATHER_GPIO14_MISO
-#define SPI0_MOSI_PIN   FEATHER_GPIO13_MOSI
-#define SPI0_SCK_PIN    FEATHER_GPIO12_SCK
+#define SPI_MISO_PIN   PCA10040_GPIO12
+#define SPI_MOSI_PIN   PCA10040_GPIO6_UART_TXD
+#define SPI_SCK_PIN    PCA10040_GPIO11
+#endif // #if COMPILE_SPI
 
+#if COMPILE_EINK
 /* E-ink pinout:
  * SD card CS to Pin D5 = 27
  * SRAM CS to Pin D6 = 30
@@ -117,33 +122,25 @@ extern "C" {
 #define SPI0_EINK_SRAM_CS_GPIO  FEATHER_GPIO30_30 // connects to featherWing board
 #define SPI0_EINK_CS_GPIO       FEATHER_GPIO31_A7 // connects to featherWing board
 #define EINK_DC_GPIO            FEATHER_GPIO11_11 // connects to featherWing board
+#endif // #if COMPILE_EINK
 
-/* CC1101 pinout:
- * GD0 goes to ?
- * GD1 not pinned out on Solu 8-pin module
- * GD2 goes to ?
- * CS goes to ?
- * MOSI, MISO, SCK pins. So use on "SPI0"
- */
-#if COMPILE_RADIO_CC1101
-#define SPI0_CC1101_CS_GPIO FEATHER_GPIO29_A5
-#elif COMPILE_RADIO_900T20D
-#define _900T20D_AUX_PIN FEATHER_GPIO29_A5
-#endif // #if COMPILE_RADIO_CC1101
-
-/* I2C1:
- * Has LIS2DH12 on it, LED screen 7-segment
- */
-#define I2C1_SCL_PIN    FEATHER_GPIO26_SCL
-#define I2C1_SDA_PIN    FEATHER_GPIO25_SDA
+#if COMPILE_I2C
+#define I2C1_SCL_PIN    PCA10040_GPIO28
+#define I2C1_SDA_PIN    PCA10040_GPIO29
+#endif // #if COMPILE_I2C
 
 // GPIOs for buttons
-#define BUTTON_START_PIN    FEATHER_OLED_BUTTONB_PIN
-#define BUTTON_REV_PIN    FEATHER_OLED_BUTTONA_PIN
-#define BUTTON_FWD_PIN    FEATHER_OLED_BUTTONC_PIN
+#define BUTTON_START_PIN    PCA10040_GPIO13_BUTTON_1
+#define BUTTON_REV_PIN    PCA10040_GPIO14_BUTTON_2
+#define BUTTON_FWD_PIN    PCA10040_GPIO15_BUTTON_3
 
-#define UART_RX_PIN FEATHER_GPIO8_USB_UART_RX
-#define UART_TX_PIN FEATHER_GPIO6_USB_UART_TX
+#if COMPILE_RADIO_900T20D
+#undef UART_RX_PIN
+#undef UART_TX_PIN // Can't use, only one UART
+#else
+#define UART_RX_PIN TODO
+#define UART_TX_PIN TODO
+#endif // COMPILE_RADIO_900T20D
 
 #else
 #error "define a board please"

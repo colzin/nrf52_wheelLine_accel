@@ -76,12 +76,6 @@ extern "C" {
 
 #define HEARTBEAT_LED_GPIO_NUM PCA10040_GPIO17_LED_1
 
-#if COMPILE_EV1527
-// Use the pins for either EV1527 format
-#define SPI2_SCK_PIN    PCA10040_GPIO7_UART_CTS // Use an un-useable pin, we don't care about this signal.
-#define SPI2_MOSI_PIN   PCA10040_GPIO4
-#endif // #if COMPILE_EV1527
-
 #if COMPILE_RADIO_CC1101
 /* CC1101 pinout:
  * GD0 goes to ?
@@ -91,6 +85,13 @@ extern "C" {
  * MOSI, MISO, SCK pins. So use on "SPI0"
  */
 #define CC1101_GDO2_PIN   PCA10040_GPIO5_UART_RTS
+#define SPI_CC1101_CS_GPIO PCA10040_GPIO3
+#if COMPILE_EV1527
+// Use the pins for either EV1527 format
+#define SPI2_SCK_PIN    PCA10040_GPIO7_UART_CTS // Use an un-useable pin, we don't care about this signal.
+#define SPI2_MOSI_PIN   PCA10040_GPIO4
+#endif // #if COMPILE_EV1527
+
 #elif COMPILE_RADIO_900T20D
 #define _900T20D_M0_PIN PCA10040_GPIO5_UART_RTS
 #define _900T20D_M1_PIN PCA10040_GPIO6_UART_TXD
@@ -107,15 +108,21 @@ extern "C" {
 #define SPI_MISO_PIN   PCA10040_GPIO12
 #define SPI_MOSI_PIN   PCA10040_GPIO6_UART_TXD
 #define SPI_SCK_PIN    PCA10040_GPIO11
-
-#if COMPILE_RADIO_CC1101
-#define SPI_CC1101_CS_GPIO PCA10040_GPIO3
-#endif // #if COMPILE_RADIO_CC1101
-#if COMPILE_EINK
-#define SPI_EINK_CS_GPIO PCA10040_GPIO?
-#endif // #if COMPILE_EINK
-
 #endif // #if COMPILE_SPI
+
+#if COMPILE_EINK
+/* E-ink pinout:
+ * SD card CS to Pin D5 = 27
+ * SRAM CS to Pin D6 = 30
+ * EINK CS to Pin D9 = 31
+ * EINK DC to Pin D10 = 11
+ * E-ink also goes to MOSI, MISO, SCK pins. So use on "SPI0"
+ */
+#define SPI0_SDCARD_CS_GPIO     FEATHER_GPIO27_27 // connects to featherWing board
+#define SPI0_EINK_SRAM_CS_GPIO  FEATHER_GPIO30_30 // connects to featherWing board
+#define SPI0_EINK_CS_GPIO       FEATHER_GPIO31_A7 // connects to featherWing board
+#define EINK_DC_GPIO            FEATHER_GPIO11_11 // connects to featherWing board
+#endif // #if COMPILE_EINK
 
 #if COMPILE_I2C
 #define I2C1_SCL_PIN    PCA10040_GPIO28
@@ -132,9 +139,8 @@ extern "C" {
 #error "define a board please"
 #endif // #if COMPILE_FOR_PCA10040
 
-
 #ifdef __cplusplus
 }
-#endif // #ifdef __cplusplus
+#endif
 
 #endif /* SRC_VERSION_H_ */

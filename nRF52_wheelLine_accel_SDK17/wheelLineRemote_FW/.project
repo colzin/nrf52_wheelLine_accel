@@ -451,11 +451,6 @@
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/simple_timer</name>
-			<type>2</type>
-			<locationURI>virtual:/virtual</locationURI>
-		</link>
-		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/strerror</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
@@ -849,16 +844,6 @@
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/ringbuf/nrf_ringbuf.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/ringbuf/nrf_ringbuf.h</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/simple_timer/app_simple_timer.c</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/simple_timer/app_simple_timer.c</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/simple_timer/app_simple_timer.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/components/libraries/simple_timer/app_simple_timer.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/components/libraries/strerror/nrf_strerror.c</name>
@@ -1361,11 +1346,6 @@
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/nrf.h</locationURI>
 		</link>
 		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/nrf51_to_nrf52.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/nrf51_to_nrf52.h</locationURI>
-		</link>
-		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/nrf52.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/nrf52.h</locationURI>
@@ -1431,11 +1411,6 @@
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/startup_config.h</locationURI>
 		</link>
 		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/system_nrf.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/system_nrf.h</locationURI>
-		</link>
-		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/system_nrf52.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/system_nrf52.c</locationURI>
@@ -1449,11 +1424,6 @@
 			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/system_nrf52_approtect.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/system_nrf52_approtect.h</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/system_nrf53_approtect.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/mdk/system_nrf53_approtect.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/soc/nrfx_atomic.c</name>
@@ -1819,11 +1789,6 @@
 			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/drivers/include/nrfx_saadc.h</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/drivers/include/nrfx_saadc.h</locationURI>
-		</link>
-		<link>
-			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/drivers/include/nrfx_saadc_v2.h</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/drivers/include/nrfx_saadc_v2.h</locationURI>
 		</link>
 		<link>
 			<name>nRF5_SDK_17.1.0_ddde560_custom/modules/nrfx/drivers/include/nrfx_spi.h</name>
