@@ -18,7 +18,7 @@
 #include "globalInts.h"
 
 #include "nrf_delay.h" // For reboot print
-#include "nrf_drv_uart.h"
+#include "nrfx_uarte.h"
 #include "pollers.h"
 
 #define NRF_LOG_MODULE_NAME uarte0
@@ -37,14 +37,14 @@ NRF_LOG_MODULE_REGISTER();
  *  Variables
  ************************************************************************************/
 // Driver
-static nrf_drv_uart_t m_uartInst = NRF_DRV_UART_INSTANCE(0);
+static nrfx_uarte_t m_uartInst = NRFX_UARTE_INSTANCE(0);
 
 // Ring buffer
 
         static volatile uint8_t m_rxData[UARTE0_MAX_UART_DATA_LEN * 2 + 1];
         static volatile int32_t m_rxDataWriteIndex;
         static int32_t m_rxDataReadIndex;
-        static volatile nrf_drv_uart_event_t m_uartEvent;
+        static volatile nrfx_uarte_event_t m_uartEvent;
         static volatile bool m_dataDiffered,
 m_txInProgress, m_uartRxError;
 
@@ -60,19 +60,19 @@ static int32_t m_txDataWriteIndex,
  *  Functions
  ************************************************************************************/
 
-static void uartEventHandler(nrf_drv_uart_event_t* p_event, void* p_context)
+static void uartEventHandler(nrfx_uarte_event_t* p_event, void* p_context)
 {
     (void)p_context;
     switch (p_event->type)
     {
-        case NRF_DRV_UART_EVT_TX_DONE:
+        case NRFX_UARTE_EVT_TX_DONE:
             m_txInProgress = false;
 #if VERBOSE_ISR_TX
             NRF_LOG_DEBUG("TxDone")
             ;
 #endif // #if VERBOSE_ISR_TX
         break;
-        case NRF_DRV_UART_EVT_RX_DONE:
+        case NRFX_UARTE_EVT_RX_DONE:
             { // Increment the indexes to log received byte
             if (p_event->data.rxtx.p_data[0] != m_rxData[m_rxDataWriteIndex])
             {
@@ -84,7 +84,7 @@ static void uartEventHandler(nrf_drv_uart_event_t* p_event, void* p_context)
             m_rxDataWriteIndex++;
             m_rxDataWriteIndex %= (int32_t)sizeof(m_rxData);
             // Start another RX
-            ret_code_t ret = nrf_drv_uart_rx(&m_uartInst, (uint8_t*)&m_rxData[m_rxDataWriteIndex], 1);
+            ret_code_t ret = nrfx_uarte_rx(&m_uartInst, (uint8_t*)&m_rxData[m_rxDataWriteIndex], 1);
             if (NRF_SUCCESS != ret)
             {
                 m_uartRxError = true;
@@ -95,13 +95,13 @@ static void uartEventHandler(nrf_drv_uart_event_t* p_event, void* p_context)
             else
             {
 #if VERBOSE_ISR_RX
-                NRF_LOG_DEBUG("RX");
+                NRF_LOG_DEBUG("RxDone");
 #endif // #if VERBOSE_ISR_RX
             }
         }
         break;
 
-        case NRF_DRV_UART_EVT_ERROR:
+        case NRFX_UARTE_EVT_ERROR:
             m_uartEvent.type = p_event->type;
             m_uartEvent.data = p_event->data;
 #if VERBOSE_ISR_ERRORS
@@ -128,7 +128,7 @@ static void trySend(void)
                 numToSend = 255; // passed as uint8 to driver
             }
             m_txInProgress = true; // Set before start, before ISR clears
-            ret_code_t ret = nrf_drv_uart_tx(&m_uartInst, &m_txData[m_txDataReadIndex], (uint8_t)numToSend);
+            ret_code_t ret = nrfx_uarte_tx(&m_uartInst, &m_txData[m_txDataReadIndex], (uint8_t)numToSend);
             if (NRF_SUCCESS == ret)
             {
                 m_txDataReadIndex += numToSend;
@@ -138,7 +138,7 @@ static void trySend(void)
             else
             {
                 m_txInProgress = false;
-                NRF_LOG_ERROR("nrf_drv_uart_tx error 0x%x", ret);
+                NRF_LOG_ERROR("nrfx_uarte_tx error 0x%x", ret);
                 return;
             }
         }
@@ -188,7 +188,7 @@ static bool componentInit(void)
     m_uartEvent.type = 100; // Set invalid, no error
 
 #if (UART_RX_PIN && UART_TX_PIN)
-    nrf_drv_uart_config_t uartCfg;
+    nrfx_uarte_config_t uartCfg;
     uartCfg.baudrate = NRF_UARTE_BAUDRATE_921600;
     uartCfg.hwfc = NRF_UARTE_HWFC_DISABLED;
     uartCfg.interrupt_priority = APP_IRQ_PRIORITY_LOW_MID;
@@ -199,7 +199,7 @@ static bool componentInit(void)
     uartCfg.pselrxd = UART_RX_PIN;
     uartCfg.pseltxd = UART_TX_PIN;
 #elif (_900T20D_RXD_PIN && _900T20D_TXD_PIN)
-    nrf_drv_uart_config_t uartCfg;
+    nrfx_uarte_config_t uartCfg;
     uartCfg.baudrate = NRF_UARTE_BAUDRATE_9600; // TODO baud rate
     uartCfg.hwfc = NRF_UARTE_HWFC_DISABLED;
     uartCfg.interrupt_priority = APP_IRQ_PRIORITY_LOW_MID;
@@ -212,16 +212,16 @@ static bool componentInit(void)
 #endif // #if usb or 900T20D
 
 #if (UART_RX_PIN && UART_TX_PIN) || (_900T20D_RXD_PIN && _900T20D_TXD_PIN)
-    ret_code_t ret = nrf_drv_uart_init(&m_uartInst, &uartCfg, uartEventHandler);
+    ret_code_t ret = nrfx_uarte_init(&m_uartInst, &uartCfg, uartEventHandler);
     if (NRF_SUCCESS != ret)
     {
         NRF_LOG_ERROR("Couldn't set up UART, error 0x%x\n", ret);
         return false;
     }
-    ret = nrf_drv_uart_rx(&m_uartInst, (uint8_t*)m_rxData, 1);
+    ret = nrfx_uarte_rx(&m_uartInst, (uint8_t*)m_rxData, 1);
     if (NRF_SUCCESS != ret)
     {
-        NRF_LOG_ERROR("nrf_drv_uart_rx error 0x%x\n", ret);
+        NRF_LOG_ERROR("nrfx_uarte_rx error 0x%x\n", ret);
         return false;
     }
     return true;
@@ -247,14 +247,14 @@ static void uartPoll(void)
     {
         NRF_LOG_ERROR("UART event error.type %d, mask 0x%x", m_uartEvent.type,
                       m_uartEvent.data.error.error_mask);
-        nrf_uarte_event_clear(m_uartInst.uarte.p_reg, NRF_UARTE_EVENT_TXDRDY);
-        nrf_uarte_event_clear(m_uartInst.uarte.p_reg, NRF_UARTE_EVENT_RXTO);
-        nrf_uarte_event_clear(m_uartInst.uarte.p_reg, NRF_UARTE_EVENT_ERROR);
-        nrf_drv_uart_uninit(&m_uartInst);
+        nrf_uarte_event_clear(m_uartInst.p_reg, NRF_UARTE_EVENT_TXDRDY);
+        nrf_uarte_event_clear(m_uartInst.p_reg, NRF_UARTE_EVENT_RXTO);
+        nrf_uarte_event_clear(m_uartInst.p_reg, NRF_UARTE_EVENT_ERROR);
+        nrfx_uarte_uninit(&m_uartInst);
         componentInit(); // Re-init it
     }
 //    if (m_rxDataReadIndex != m_rxDataWriteIndex)
-//    {
+//    {*
 //        NRF_LOG_DEBUG("uartPoll new data");
 //    }
     trySend(); // Send any bytes waiting to be sent
